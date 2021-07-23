@@ -52,6 +52,50 @@ contract UniV2LimitsStops {
         uni.swapExactTokensForTokens(inputAmount, amountOutMin, path, to, deadline);
     }
 
+    function ethToTokenStopLoss(
+        IUniswapV2Router02 uni,
+        uint amountOutMin,
+        uint amountOutMax,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable {
+        uint[] memory amounts = uni.swapExactETHForTokens{value: msg.value}(amountOutMin, path, to, deadline);
+        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: output too high");
+    }
+
+    function tokenToEthStopLoss(
+        address payable sender,
+        IUniswapV2Router02 uni,
+        uint inputAmount,
+        uint amountOutMin,
+        uint amountOutMax,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external onlyAutonomyVF {
+        IERC20 token = approveUnapproved(uni, path[0], inputAmount);
+        token.transferFrom(sender, address(this), inputAmount);
+        uint[] memory amounts = uni.swapExactTokensForETH(inputAmount, amountOutMin, path, to, deadline);
+        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: output too high");
+    }
+
+    function tokenToTokenStopLoss(
+        address payable sender,
+        IUniswapV2Router02 uni,
+        uint inputAmount,
+        uint amountOutMin,
+        uint amountOutMax,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external onlyAutonomyVF {
+        IERC20 token = approveUnapproved(uni, path[0], inputAmount);
+        token.transferFrom(sender, address(this), inputAmount);
+        uint[] memory amounts = uni.swapExactTokensForTokens(inputAmount, amountOutMin, path, to, deadline);
+        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: output too high");
+    }
+
     function approveUnapproved(IUniswapV2Router02 uni, address tokenAddr, uint inputAmount) private returns (IERC20 token) {
         token = IERC20(tokenAddr);
         if (token.allowance(address(this), address(uni)) < inputAmount) {
@@ -60,7 +104,7 @@ contract UniV2LimitsStops {
     }
 
     modifier onlyAutonomyVF() {
-        require(msg.sender == autonomyVF, "Only Autonomy. Nice try");
+        require(msg.sender == autonomyVF, "LimitsStops: only autoVF");
         _;
     }
 

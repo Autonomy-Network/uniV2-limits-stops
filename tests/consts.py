@@ -22,7 +22,7 @@ INIT_REFERAL_REWARD = 10**20
 
 
 # Registry
-REV_MSG_ONLY_AUTONOMY = 'Only Autonomy. Nice try'
+REV_MSG_ONLY_AUTONOMY = 'LimitsStops: only autoVF'
 
 
 # Token
@@ -42,3 +42,7 @@ UNIV2_WETH_ANY_ADDR = '0x0e6a01Fcd1420B719Cb570BE60B6bF80FBe460C4'
 
 REV_MSG_UNI_INPUT = 'UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT'
 REV_MSG_UNI_OUTPUT = 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT'
+
+
+# UniV2LimitsStops
+REV_MSG_OUTPUT_HIGH = 'LimitsStops: output too high'

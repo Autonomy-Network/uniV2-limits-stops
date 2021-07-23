@@ -15,8 +15,11 @@ auto_accs = accounts.from_mnemonic(AUTONOMY_SEED, count=10)
 
 
 def main():
-    UNI_DEPLOYER = auto_accs[6]
+    UNI_DEPLOYER = auto_accs[4]
     print(UNI_DEPLOYER)
-    FORWARDER_ADDR = '0xD1DEdEb7871F1dd55cA26746650378723c26Be5d'
+    # Ropsten
+    # FORWARDER_ADDR = '0xD1DEdEb7871F1dd55cA26746650378723c26Be5d'
+    # Polygon testnet
+    FORWARDER_ADDR = '0xb85050D4429c5923B4Bad4F8A9E5F3d08e2179db'
     uniV2LimitsStops = UNI_DEPLOYER.deploy(UniV2LimitsStops, FORWARDER_ADDR)
     # print(mockUniLimit.abi)
