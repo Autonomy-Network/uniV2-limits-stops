@@ -13,8 +13,8 @@ import "./abstract/Shared.sol";
 contract Registry is IRegistry, Shared, ReentrancyGuard {
     
     // Constant public
-    uint public constant GAS_OVERHEAD_AUTO = 70500;
-    uint public constant GAS_OVERHEAD_ETH = 47000;
+    uint public constant GAS_OVERHEAD_AUTO = 16000;
+    uint public constant GAS_OVERHEAD_ETH = 6000;
     uint public constant BASE_BPS = 10000;
     uint public constant PAY_AUTO_BPS = 11000;
     uint public constant PAY_ETH_BPS = 13000;
@@ -22,10 +22,12 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
     // Constant private
     bytes private constant _EMPTY_BYTES = "";
     
-    IERC20 private _AUTO;
-    IStakeManager private _stakeMan;
-    IOracle private _oracle;
-    IForwarder private _veriForwarder;
+    IERC20 private immutable _AUTO;
+    IStakeManager private immutable _stakeMan;
+    IOracle private immutable _oracle;
+    IForwarder private immutable _userForwarder;
+    IForwarder private immutable _gasForwarder;
+    IForwarder private immutable _userGasForwarder;
     // We need to have 2 separete arrays for adding requests with and without
     // eth because, when comparing the hash of a request to be executed to the
     // stored hash, we have no idea what the request had for the eth values
@@ -34,7 +36,7 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
     // that can be known implicitly by having 2 separate arrays.
     bytes32[] private _hashedReqs;
     bytes32[] private _hashedReqsUnveri;
-    // This counts the number of times each requester has had a request executed
+    // This counts the number of times each user has had a request executed
     mapping(address => uint) private _reqCounts;
     // This counts the number of times each staker has executed a request
     mapping(address => uint) private _execCounts;
@@ -45,29 +47,31 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
     
     // This is defined in IRegistry. Here for convenience
     // The address vars are 20b, total 60, calldata is 4b + n*32b usually, which
-    // has a factor of 32. uint120 since the current ETH supply of ~115m can fit
-    // into that and it's the highest such that 2 * uint120 + 2 * bool is < 256b
+    // has a factor of 32. uint112 since the current ETH supply of ~115m can fit
+    // into that and it's the highest such that 2 * uint112 + 2 * bool is < 256b
     // struct Request {
-    //     address payable requester;
+    //     address payable user;
     //     address target;
     //     address payable referer;
     //     bytes callData;
-    //     uint120 initEthSent;
-    //     uint120 ethForCall;
-    //     bool verifySender;
+    //     uint112 initEthSent;
+    //     uint112 ethForCall;
+    //     bool verifyUser;
+    //     bool insertFeeAmount;
     //     bool payWithAUTO;
     // }
 
     // Easier to parse when using native types rather than structs
     event HashedReqAdded(
         uint indexed id,
-        address payable requester,
+        address payable user,
         address target,
         address payable referer,
         bytes callData,
-        uint120 initEthSent,
-        uint120 ethForCall,
-        bool verifySender,
+        uint112 initEthSent,
+        uint112 ethForCall,
+        bool verifyUser,
+        bool insertFeeAmount,
         bool payWithAUTO
     );
     event HashedReqRemoved(uint indexed id, bool wasExecuted);
@@ -79,12 +83,16 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         IERC20 AUTO,
         IStakeManager staker,
         IOracle oracle,
-        IForwarder veriForwarder
+        IForwarder userForwarder,
+        IForwarder gasForwarder,
+        IForwarder userGasForwarder
     ) ReentrancyGuard() {
         _AUTO = AUTO;
         _stakeMan = staker;
         _oracle = oracle;
-        _veriForwarder = veriForwarder;
+        _userForwarder = userForwarder;
+        _gasForwarder = gasForwarder;
+        _userGasForwarder = userGasForwarder;
     }
 
 
@@ -98,8 +106,9 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         address target,
         address payable referer,
         bytes calldata callData,
-        uint120 ethForCall,
-        bool verifySender,
+        uint112 ethForCall,
+        bool verifyUser,
+        bool insertFeeAmount,
         bool payWithAUTO
     )
         external
@@ -110,19 +119,30 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         validEth(payWithAUTO, ethForCall)
         returns (uint id)
     {
-        Request memory r = Request(payable(msg.sender), target, referer, callData, uint120(msg.value), ethForCall, verifySender, payWithAUTO);
+        Request memory r = Request(
+            payable(msg.sender),
+            target,
+            referer,
+            callData,
+            uint112(msg.value),
+            ethForCall,
+            verifyUser,
+            insertFeeAmount,
+            payWithAUTO
+        );
         bytes32 hashedIpfsReq = keccak256(getReqBytes(r));
 
         id = _hashedReqs.length;
         emit HashedReqAdded(
             id,
-            r.requester,
+            r.user,
             r.target,
             r.referer,
             r.callData,
             r.initEthSent,
             r.ethForCall,
-            r.verifySender,
+            r.verifyUser,
+            r.insertFeeAmount,
             r.payWithAUTO
         );
         _hashedReqs.push(hashedIpfsReq);
@@ -181,7 +201,7 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
 
     //////////////////////////////////////////////////////////////
     //                                                          //
-    //                        Hash Helpers                      //
+    //                        Bytes Helpers                     //
     //                                                          //
     //////////////////////////////////////////////////////////////
 
@@ -212,6 +232,16 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
     function getReqFromBytes(bytes memory rBytes) public pure override returns (Request memory r) {
         (r) = abi.decode(rBytes, (Request));
     }
+
+    function insertToCallData(bytes calldata callData, uint expected_gas, uint startIdx) public pure override returns (bytes memory) {
+        bytes memory cd = callData;
+        bytes memory expectedGasBytes = abi.encode(expected_gas);
+        for (uint i = 0; i < 32; i++) {
+            cd[startIdx+i] = expectedGasBytes[i];
+        }
+
+        return cd;
+    }
     
 
     //////////////////////////////////////////////////////////////
@@ -231,22 +261,27 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
      */
     function executeHashedReq(
         uint id,
-        Request calldata r
+        Request calldata r,
+        uint expected_gas
     )
         external
         override
         validExec
         nonReentrant
-        noFish(r)
         validCalldata(r)
         verReq(id, r)
         returns (uint gasUsed)
     {
         uint startGas = gasleft();
+
         delete _hashedReqs[id];
-        gasUsed = _execute(r, startGas - gasleft(), msg.data.length * 20);
-        
+        _execute(r, expected_gas);
         emit HashedReqRemoved(id, true);
+
+        gasUsed = startGas - gasleft();
+        gasUsed += r.payWithAUTO == true ? GAS_OVERHEAD_AUTO : GAS_OVERHEAD_ETH;
+        // Make sure that the expected gas used is within 10% of the actual gas used
+        require(expected_gas * 10 <= gasUsed * 11, "Reg: expected_gas too high");
     }
 
     /**
@@ -258,41 +293,61 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         uint id,
         Request calldata r,
         bytes memory dataPrefix,
-        bytes memory dataSuffix
+        bytes memory dataSuffix,
+        uint expected_gas
     )
         external
         override
         validExec
         nonReentrant
-        noFish(r)
         targetNotThis(r.target)
         verReqIPFS(id, r, dataPrefix, dataSuffix)
         returns (uint gasUsed)
     {
+        uint startGas = gasleft();
         require(
             r.initEthSent == 0 &&
             r.ethForCall == 0 &&
             r.payWithAUTO == true &&
-            r.verifySender == false,
+            r.verifyUser == false,
             "Reg: cannot verify. Nice try ;)"
         );
 
-        uint startGas = gasleft();
         delete _hashedReqsUnveri[id];
-        // 1000 extra is needed compared to executeHashedReq because of the extra checks
-        gasUsed = _execute(r, startGas - gasleft(), (msg.data.length * 20) + 1000);
-        
+        _execute(r, expected_gas);
         emit HashedReqUnveriRemoved(id, true);
+
+        gasUsed = startGas - gasleft();
+        gasUsed += r.payWithAUTO == true ? GAS_OVERHEAD_AUTO : GAS_OVERHEAD_ETH;
+        // Make sure that the expected gas used is within 10% of the actual gas used
+        require(expected_gas * 10 <= gasUsed * 11, "Reg: expected_gas too high");
     }
 
-    function _execute(Request memory r, uint gasUsedInDelete, uint extraOverhead) private returns (uint gasUsed) {
-        uint startGas = gasleft();
+    function _execute(Request calldata r, uint expected_gas) private {
+        IOracle orac = _oracle;
+        uint ethStartBal = address(this).balance;
+        uint feeTotal;
+        if (r.payWithAUTO) {
+            feeTotal = expected_gas * orac.getGasPriceFast() * orac.getAUTOPerETH() * PAY_AUTO_BPS / (BASE_BPS * _E_18);
+        } else {
+            feeTotal = expected_gas * orac.getGasPriceFast() * PAY_ETH_BPS / BASE_BPS;
+        }
 
         // Make the call that the user requested
         bool success;
         bytes memory returnData;
-        if (r.verifySender) {
-            (success, returnData) = _veriForwarder.forward{value: r.ethForCall}(r.target, r.callData);
+        if (r.verifyUser && !r.insertFeeAmount) {
+            (success, returnData) = _userForwarder.forward{value: r.ethForCall}(r.target, r.callData);
+        } else if (!r.verifyUser && r.insertFeeAmount) {
+            (success, returnData) = _gasForwarder.forward{value: r.ethForCall}(
+                r.target,
+                insertToCallData(r.callData, feeTotal, 4)
+            );
+        } else if (r.verifyUser && r.insertFeeAmount) {
+            (success, returnData) = _userGasForwarder.forward{value: r.ethForCall}(
+                r.target,
+                insertToCallData(r.callData, feeTotal, 36)
+            );
         } else {
             (success, returnData) = r.target.call{value: r.ethForCall}(r.callData);
         }
@@ -303,7 +358,6 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         if (!success) {
             revert(abi.decode(returnData, (string)));
         }
-        // require(success, string(returnData));
         
         // Store AUTO rewards
         // It's cheaper to store the cumulative rewards than it is to send
@@ -316,55 +370,29 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         // Need to include these storages in the gas cost that the user pays since
         // they benefit from part of it and the costs can vary depending on whether
         // the amounts changed from were 0 or non-0
-        _reqCounts[r.requester] += 1;
+        _reqCounts[r.user] += 1;
         _execCounts[msg.sender] += 1;
         if (r.referer != _ADDR_0) {
             _referalCounts[r.referer] += 1;
         }
 
-        IOracle orac = _oracle;
-        uint gasPrice = orac.getGasPriceFast();
-
-        uint callGasUsed = (startGas - gasleft());
-        gasUsed = 5000 + callGasUsed + extraOverhead;
-
-        uint gasRefunded = 15000;
-
+        // If ETH was somehow siphoned from this contract during the request,
+        // this will revert because of an `Integer overflow` underflow - a security feature
+        uint ethReceivedDuringRequest = address(this).balance + r.ethForCall - ethStartBal;
         if (r.payWithAUTO) {
-            gasUsed += GAS_OVERHEAD_AUTO;
-            if (gasRefunded > gasUsed / 2) {
-                gasUsed = (gasUsed / 2) + 700;
-            } else {
-                gasUsed += 855;
-                gasUsed -= gasRefunded;
-            }
-
-            uint totalAUTO = gasUsed * gasPrice * orac.getAUTOPerETH() * PAY_AUTO_BPS / (BASE_BPS * _E_18);
-
             // Send the executor their bounty
-            require(_AUTO.transferFrom(r.requester, msg.sender, totalAUTO));
+            require(_AUTO.transferFrom(r.user, msg.sender, feeTotal));
         } else {
-            gasUsed += GAS_OVERHEAD_ETH;
-            if (gasRefunded > gasUsed / 2) {
-                gasUsed = (gasUsed / 2) + 700;
-            } else {
-                gasUsed += 855;
-                gasUsed -= gasRefunded;
-            }
-
-            uint totalETH = gasUsed * gasPrice * PAY_ETH_BPS / BASE_BPS;
-            uint ethReceived = r.initEthSent - r.ethForCall;
-
+            uint ethReceived = r.initEthSent - r.ethForCall + ethReceivedDuringRequest;
             // Send the executor their bounty
-            require(ethReceived >= totalETH, "Reg: not enough eth sent");
-            payable(msg.sender).transfer(totalETH);
+            require(ethReceived >= feeTotal, "Reg: not enough eth sent");
+            payable(msg.sender).transfer(feeTotal);
 
-            // Refund excess to the requester
-            uint excess = ethReceived - totalETH;
+            // Refund excess to the user
+            uint excess = ethReceived - feeTotal;
             if (excess > 0) {
-                r.requester.transfer(excess);
+                r.user.transfer(excess);
             }
-
         }
     }
 
@@ -384,7 +412,7 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         nonReentrant
         verReq(id, r)
     {
-        require(msg.sender == r.requester, "Reg: not the requester");
+        require(msg.sender == r.user, "Reg: not the user");
         
         // Cancel the request
         emit HashedReqRemoved(id, false);
@@ -392,7 +420,7 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         
         // Send refund
         if (r.initEthSent > 0) {
-            r.requester.transfer(r.initEthSent);
+            r.user.transfer(r.initEthSent);
         }
     }
     
@@ -407,7 +435,7 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         nonReentrant
         verReqIPFS(id, r, dataPrefix, dataSuffix)
     {
-        require(msg.sender == r.requester, "Reg: not the requester");
+        require(msg.sender == r.user, "Reg: not the user");
         
         // Cancel the request
         emit HashedReqUnveriRemoved(id, false);
@@ -433,8 +461,16 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         return address(_oracle);
     }
     
-    function getVerifiedForwarder() external view override returns (address) {
-        return address(_veriForwarder);
+    function getUserForwarder() external view override returns (address) {
+        return address(_userForwarder);
+    }
+    
+    function getGasForwarder() external view override returns (address) {
+        return address(_gasForwarder);
+    }
+    
+    function getUserGasForwarder() external view override returns (address) {
+        return address(_userGasForwarder);
     }
 
     function getReqCountOf(address addr) external view override returns (uint) {
@@ -486,8 +522,8 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
     }
 
     modifier validCalldata(Request calldata r) {
-        if (r.verifySender) {
-            require(abi.decode(r.callData[4:36], (address)) == r.requester, "Reg: calldata not verified");
+        if (r.verifyUser) {
+            require(abi.decode(r.callData[4:36], (address)) == r.user, "Reg: calldata not verified");
         }
         _;
     }
@@ -495,18 +531,6 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
     modifier validExec() {
         require(_stakeMan.isUpdatedExec(msg.sender), "Reg: not executor or expired");
         _;
-    }
-
-    modifier noFish(Request calldata r) {
-        uint ethStartBal = address(this).balance;
-
-        _;
-
-        if (r.payWithAUTO) {
-            require(address(this).balance >= ethStartBal - r.ethForCall, "Reg: something fishy here");
-        } else {
-            require(address(this).balance >= ethStartBal - r.initEthSent, "Reg: something fishy here");
-        }
     }
 
     // Verify that a request is the same as the one initially stored. This also

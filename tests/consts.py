@@ -10,7 +10,8 @@ MAX_UINT = 115792089237316195423570985008687907853269984665640564039457584007913
 
 # Oracle
 # Assuming ETH is $2k and AUTO is $1
-INIT_AUTO_PER_ETH = 2000 * E_18
+INIT_AUTO_PER_ETH = 2000
+INIT_AUTO_PER_ETH_WEI = INIT_AUTO_PER_ETH * E_18
 # 2 gwei
 INIT_GAS_PRICE_FAST = 2 * 10**9
 
@@ -22,7 +23,14 @@ INIT_REFERAL_REWARD = 10**20
 
 
 # Registry
-REV_MSG_ONLY_AUTONOMY = 'LimitsStops: only autoVF'
+REV_MSG_ONLY_AUTONOMY = 'LimitsStops: not userForw'
+MIN_GAS = 21000
+EXPECTED_GAS = 200000
+BASE_BPS = 10000
+PAY_AUTO_FACTOR = 1.1
+PAY_AUTO_BPS = PAY_AUTO_FACTOR * BASE_BPS
+PAY_ETH_FACTOR = 1.3
+PAY_ETH_BPS = PAY_ETH_FACTOR * BASE_BPS
 
 
 # Token
@@ -31,6 +39,10 @@ REV_MSG_EXCEED_ALLOWANCE = 'ERC20: transfer amount exceeds allowance'
 
 # Uniswap
 UNIV2_ROUTER2_ADDR = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'
+UNIV2_FACTORY_ADDR = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f'
+INIT_PAIR_BAL_ETH = 10 * E_18
+INIT_PAIR_BAL_AUTO = INIT_AUTO_PER_ETH * INIT_PAIR_BAL_ETH
+WITHIN_LIMIT_FACTOR = 0.001
 
 # Using ANY as a token for testing from mainnet because it has low
 # liquidity and is easy to move the price
@@ -44,5 +56,14 @@ REV_MSG_UNI_INPUT = 'UniswapV2Library: INSUFFICIENT_INPUT_AMOUNT'
 REV_MSG_UNI_OUTPUT = 'UniswapV2Router: INSUFFICIENT_OUTPUT_AMOUNT'
 
 
+# Owner
+REV_MSG_OWNER = "Ownable: caller is not the owner"
+
+
 # UniV2LimitsStops
-REV_MSG_OUTPUT_HIGH = 'LimitsStops: output too high'
+DEFAULT_FEE_INFO = (UNIV2_ROUTER2_ADDR, (ADDR_0, WETH_ADDR), False)
+REV_MSG_PRICE_HIGH = 'LimitsStops: price too high'
+# Trading 1 wei of something of small value for something of higher value will lead
+# to int and/or rounding issues
+MIN_TRADE_AMOUNT = 10**10
+ERROR_FACTOR = 0.0000000001
