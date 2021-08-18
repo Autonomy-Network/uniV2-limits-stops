@@ -9,7 +9,7 @@ def test_tokenToEthLimitOrderPayDefault_eth(auto, evmMaths, uni_router2, any, un
     path = [ANY_ADDR, WETH_ADDR]
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
-    limit_output = int(init_output * 1.01)
+    limit_output = int(init_output * 1.1)
     call_data = uniLS.tokenToEthLimitOrderPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, input_amount, limit_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, False)
 
@@ -239,7 +239,6 @@ def test_tokenToEthLimitOrderPayDefault_AUTO_trade_AUTO(auto, evmMaths, uni_rout
     whale_amount = 10**19
     uni_router2.swapExactETHForTokens(1, path[::-1], auto.WHALE, time.time()*2, {'value': whale_amount,'from': auto.WHALE})
     assert uni_router2.getAmountsOut(input_amount, path)[-1] >= limit_output
-    print(uni_router2.getAmountsOut(input_amount, path))
 
     assert auto.CHARLIE.balance() == INIT_ETH_BAL - req_eth_cost
     assert auto.EXEC.balance() == INIT_ETH_BAL
@@ -381,6 +380,7 @@ def test_tokenToEthLimitOrderPayDefault_random(auto, evmMaths, uni_router2, any,
         fee_output = evmMaths.mul3div1(expected_gas, INIT_GAS_PRICE_FAST, PAY_ETH_BPS, BASE_BPS)
         allowance_used = input_amount
         fee_input = uni_router2.getAmountsIn(fee_output, path)[0]
+        trade_output = uni_router2.getAmountsOut(input_amount, path)[-1] - fee_output
 
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     # Not enough ETH to pay the fee
@@ -395,15 +395,9 @@ def test_tokenToEthLimitOrderPayDefault_random(auto, evmMaths, uni_router2, any,
     elif input_amount >= fee_input + MIN_TRADE_AMOUNT and cur_output >= limit_output:
         assert uni_router2.getAmountsOut(input_amount, path)[-1] >= limit_output
 
-        # if pay_with_AUTO:
-        #     # Assumes the traded token is not AUTO
-        #     trade_output = uni_router2.getAmountsOut(input_amount - fee_input, path)[-1]
-        # else:
-        #     trade_output = uni_router2.getAmountsOut(input_amount - fee_input, path)[-1]
-        
         tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
         
-        # assert auto.CHARLIE.balance() == INIT_ETH_BAL - req_eth_cost + trade_output
+        assert auto.CHARLIE.balance() == INIT_ETH_BAL - req_eth_cost + trade_output
         assert auto.EXEC.balance() == INIT_ETH_BAL - (tx.gas_used * INIT_GAS_PRICE_FAST) + (0 if pay_with_AUTO else fee_output)
         assert uniLS.balance() == 0
         assert auto.r.balance() == 0

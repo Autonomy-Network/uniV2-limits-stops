@@ -33,22 +33,25 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract UniV2LimitsStops is Ownable {
 
-    address payable private immutable _registry;
-    address private immutable _userVeriForwarder;
-    address private immutable _userFeeVeriForwarder;
+    address payable public immutable registry;
+    address public immutable userVeriForwarder;
+    address public immutable userFeeVeriForwarder;
+    address public immutable WETH;
     FeeInfo private _defaultFeeInfo;
     uint256 private constant MAX_UINT = type(uint256).max;
 
 
     constructor(
-        address payable registry,
-        address userVeriForwarder,
-        address userFeeVeriForwarder,
+        address payable registry_,
+        address userVeriForwarder_,
+        address userFeeVeriForwarder_,
+        address WETH_,
         FeeInfo memory defaultFeeInfo
     ) Ownable() {
-        _registry = registry;
-        _userVeriForwarder = userVeriForwarder;
-        _userFeeVeriForwarder = userFeeVeriForwarder;
+        registry = registry_;
+        userVeriForwarder = userVeriForwarder_;
+        userFeeVeriForwarder = userFeeVeriForwarder_;
+        WETH = WETH_;
         _defaultFeeInfo = defaultFeeInfo;
     }
 
@@ -91,8 +94,9 @@ contract UniV2LimitsStops is Ownable {
     ) external payable userFeeVerified {
         FeeInfo memory feeInfo = _defaultFeeInfo;
         if (feeInfo.isAUTO) {
-            feeInfo.path[0] = path[0];
+            feeInfo.path[0] = WETH;
         }
+
         _ethToTokenLimitOrderPaySpecific(
             user,
             feeAmount,
@@ -138,7 +142,7 @@ contract UniV2LimitsStops is Ownable {
         if (feeInfo.isAUTO) {
             inputSpentOnFee = feeInfo.uni.swapETHForExactTokens{value: msg.value}(feeAmount, feeInfo.path, user, deadline)[0];
         } else {
-            _registry.transfer(feeAmount);
+            registry.transfer(feeAmount);
             inputSpentOnFee = feeAmount;
         }
 
@@ -189,7 +193,7 @@ contract UniV2LimitsStops is Ownable {
         if (feeInfo.isAUTO && path[0] != feeInfo.path[feeInfo.path.length-1]) {
             address[] memory newFeePath = new address[](3);
             newFeePath[0] = path[0];               // src token
-            newFeePath[1] = path[path.length-1];   // WETH since path in tokenToETH ends in WETH
+            newFeePath[1] = WETH;   // WETH_ since path in tokenToETH ends in WETH_
             newFeePath[2] = feeInfo.path[feeInfo.path.length-1];   // AUTO since feePath here ends in AUTO
             feeInfo.path = newFeePath;
         }
@@ -262,7 +266,7 @@ contract UniV2LimitsStops is Ownable {
             path,
             // Sending it all to the registry means that the fee will be kept
             // (if it's in ETH) and the excess sent to the user
-            feeInfo.isAUTO ? user : _registry,
+            feeInfo.isAUTO ? user : registry,
             deadline
         );
     }
@@ -298,17 +302,18 @@ contract UniV2LimitsStops is Ownable {
         uint deadline
     ) external userFeeVerified {
         FeeInfo memory feeInfo = _defaultFeeInfo;
-        // The fee path only needs to be modified when not paying in ETH (since
-        // the output of the trade is ETH and that can be used) and when the input
-        // token isn't AUTO anyway (since that can be used without a 2nd trade)
+        // The fee path only needs to be modified when the src/dest tokens aren't
+        // AUTO (if paying in AUTO), and when paying in ETH
         if (feeInfo.isAUTO && path[0] != feeInfo.path[feeInfo.path.length-1]) {
             address[] memory newFeePath = new address[](3);
-            newFeePath[0] = path[0];               // src token
-            newFeePath[1] = path[path.length-1];   // WETH since path in tokenToETH ends in WETH
+            newFeePath[0] = path[0];                // src token
+            newFeePath[1] = WETH;                  // WETH_ since path in tokenToETH ends in WETH_
             newFeePath[2] = feeInfo.path[feeInfo.path.length-1];   // AUTO since feePath here ends in AUTO
             feeInfo.path = newFeePath;
+        } else if (!feeInfo.isAUTO) {
+            feeInfo.path[0] = path[0];
         }
-        
+
         _tokenToTokenLimitOrderPaySpecific(
             user,
             feeAmount,
@@ -367,16 +372,14 @@ contract UniV2LimitsStops is Ownable {
                 // fee will be taken from them after that
                 transferApproveUnapproved(uni, path[0], inputAmount, user);
             } else {
-                feeInfo.path[0] = path[0];
                 transferApproveUnapproved(uni, path[0], inputAmount, user);
                 approveUnapproved(feeInfo.uni, path[0], inputAmount);
                 inputSpentOnFee = feeInfo.uni.swapTokensForExactTokens(feeAmount, inputAmount, feeInfo.path, user, deadline)[0];
             }
         } else {
             transferApproveUnapproved(uni, path[0], inputAmount, user);
-            feeInfo.path[0] = path[0];
             approveUnapproved(feeInfo.uni, path[0], inputAmount);
-            inputSpentOnFee = feeInfo.uni.swapTokensForExactETH(feeAmount, inputAmount, feeInfo.path, _registry, deadline)[0];
+            inputSpentOnFee = feeInfo.uni.swapTokensForExactETH(feeAmount, inputAmount, feeInfo.path, registry, deadline)[0];
         }
 
         // *1, *2
@@ -482,18 +485,6 @@ contract UniV2LimitsStops is Ownable {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
-    function getRegistry() external view returns (address) {
-        return _registry;
-    }
-
-    function getUserVerifiedForwarder() external view returns (address) {
-        return _userVeriForwarder;
-    }
-
-    function getUserFeeVerifiedForwarder() external view returns (address) {
-        return _userFeeVeriForwarder;
-    }
-
     function getDefaultFeeInfo() external view returns (FeeInfo memory) {
         return _defaultFeeInfo;
     }
@@ -506,12 +497,12 @@ contract UniV2LimitsStops is Ownable {
     //////////////////////////////////////////////////////////////
 
     modifier userVerified() {
-        require(msg.sender == _userVeriForwarder, "LimitsStops: not userForw");
+        require(msg.sender == userVeriForwarder, "LimitsStops: not userForw");
         _;
     }
 
     modifier userFeeVerified() {
-        require(msg.sender == _userFeeVeriForwarder, "LimitsStops: not userFeeForw");
+        require(msg.sender == userFeeVeriForwarder, "LimitsStops: not userFeeForw");
         _;
     }
 

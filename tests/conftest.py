@@ -107,8 +107,8 @@ def any(auto, UniV2LimitsStops):
 
 
 @pytest.fixture(scope="module")
-def uniLS(auto, any, uni_router2, UniV2LimitsStops):
-    uniLS =  auto.DEPLOYER.deploy(UniV2LimitsStops, auto.r, auto.uf, auto.uff, DEFAULT_FEE_INFO)
+def uniLS(auto, any, dai, uni_router2, UniV2LimitsStops):
+    uniLS =  auto.DEPLOYER.deploy(UniV2LimitsStops, auto.r, auto.uf, auto.uff, WETH_ADDR, DEFAULT_FEE_INFO)
 
     # The top holder from https://etherscan.io/token/0xf99d58e463A2E07e5692127302C20A191861b4D6#balances
     # which is actually SushiSwap, so there should always be some tokens here
@@ -116,8 +116,14 @@ def uniLS(auto, any, uni_router2, UniV2LimitsStops):
     any.transfer(auto.WHALE, INIT_ANY_BAL, {'from': whale})
     assert any.balanceOf(auto.WHALE) == INIT_ANY_BAL
     any.approve(uni_router2, MAX_UINT, auto.FR_WHALE)
+
     auto.AUTO.transfer(auto.WHALE, int(INIT_AUTO_SUPPLY/10), auto.FR_DEPLOYER)
     auto.AUTO.approve(uni_router2, MAX_UINT, auto.FR_WHALE)
+
+    dai_whale = a.at('0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643', force=True)
+    dai.transfer(auto.WHALE, INIT_ANY_BAL, {'from': dai_whale})
+    assert dai.balanceOf(auto.WHALE) == INIT_ANY_BAL
+    dai.approve(uni_router2, MAX_UINT, auto.FR_WHALE)
 
     return uniLS
 
