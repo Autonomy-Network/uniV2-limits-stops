@@ -192,7 +192,7 @@ interface IRegistry {
      */
     function getReqFromBytes(bytes memory rBytes) external pure returns (Request memory r);
 
-    function insertToCallData(bytes calldata callData, uint expected_gas, uint startIdx) external pure returns (bytes memory);
+    function insertToCallData(bytes calldata callData, uint expectedGas, uint startIdx) external pure returns (bytes memory);
     
 
     //////////////////////////////////////////////////////////////
@@ -204,7 +204,7 @@ interface IRegistry {
     function executeHashedReq(
         uint id,
         Request calldata r,
-        uint expected_gas
+        uint expectedGas
     ) external returns (uint gasUsed);
 
     /**
@@ -217,7 +217,7 @@ interface IRegistry {
         Request calldata r,
         bytes memory dataPrefix,
         bytes memory dataSuffix,
-        uint expected_gas
+        uint expectedGas
     ) external returns (uint gasUsed);
 
 

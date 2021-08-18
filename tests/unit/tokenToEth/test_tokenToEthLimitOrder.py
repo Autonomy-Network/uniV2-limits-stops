@@ -75,7 +75,7 @@ def test_tokenToEthLimitOrder_rev_input_approve(auto, uni_router2, any, uniLS):
 
 
 def test_tokenToEthLimitOrder_rev_sender(a, auto, uniLS):
-    for addr in a:
-        if addr != auto.uf:
-            with reverts(REV_MSG_ONLY_AUTONOMY):
-                uniLS.tokenToEthLimitOrder(auto.CHARLIE, UNIV2_ROUTER2_ADDR, E_18, 1, [ANY_ADDR, WETH_ADDR], auto.CHARLIE, time.time() * 2, {'from': addr})
+    for addr in list(a) + auto.all:
+        if addr.address != auto.uf.address:
+            with reverts(REV_MSG_USERFORW):
+                uniLS.tokenToEthLimitOrder(auto.CHARLIE, UNIV2_ROUTER2_ADDR, 1, 1, [], auto.CHARLIE, time.time() * 2, {'from': addr})

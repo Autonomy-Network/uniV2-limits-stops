@@ -8,12 +8,34 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 // TODO: get returned data from calls, so if they revert, can pass on the reason
 // TODO: add safeTransfer
+// TODO: add withdraw for ERC20s for fools who send tokens to this contract
+
+// Comments referenced throughout
+// *1:
+// Reduce amountOutMin proportionally so that the price of execution is the same
+// as what was intended by the user. This is done so that the trade executes at
+// the price intended by the user, even though they'll receive less than if
+// that'd market bought/sold at that price (because they pay for the execution
+// in regular ETH tx fees with normal Uniswap market orders). The naive way is
+// to do the trade, then take the output token, and trade some of that for
+// whatever the fee is paid in - this will execute at the intended price, but
+// is gas inefficient because it then requires sending the output tokens here
+// (and then requiring an additional transfer to the user), rather than inputing
+// the recipient into the Uniswap trade. Instead, we can have 2 Uniswap trades
+// (in the worst case scenario where the fee token isn't one of the traded tokens)
+// that sends the fee in the 1st, and reduce amountOutMin in the 2nd proportional
+// to the fees spent, such that the total execution price is the same as what was
+// intended by the user, even though there are fewer input tokens to spend on the
+// trade
+// *2:
+// Can't do `tradeInput = (inputAmount - inputSpentOnFee)` because of stack too deep
+
 
 contract UniV2LimitsStops is Ownable {
 
     address payable private immutable _registry;
     address private immutable _userVeriForwarder;
-    address private immutable _userGasVeriForwarder;
+    address private immutable _userFeeVeriForwarder;
     FeeInfo private _defaultFeeInfo;
     uint256 private constant MAX_UINT = type(uint256).max;
 
@@ -21,12 +43,12 @@ contract UniV2LimitsStops is Ownable {
     constructor(
         address payable registry,
         address userVeriForwarder,
-        address userGasVeriForwarder,
+        address userFeeVeriForwarder,
         FeeInfo memory defaultFeeInfo
     ) Ownable() {
         _registry = registry;
         _userVeriForwarder = userVeriForwarder;
-        _userGasVeriForwarder = userGasVeriForwarder;
+        _userFeeVeriForwarder = userFeeVeriForwarder;
         _defaultFeeInfo = defaultFeeInfo;
     }
 
@@ -65,17 +87,19 @@ contract UniV2LimitsStops is Ownable {
         IUniswapV2Router02 uni,
         uint amountOutMin,
         address[] calldata path,
-        address to,
         uint deadline
-    ) external payable userGasVerified {
+    ) external payable userFeeVerified {
+        FeeInfo memory feeInfo = _defaultFeeInfo;
+        if (feeInfo.isAUTO) {
+            feeInfo.path[0] = path[0];
+        }
         _ethToTokenLimitOrderPaySpecific(
             user,
             feeAmount,
             uni,
-            _defaultFeeInfo,
+            feeInfo,
             amountOutMin,
             path,
-            to,
             deadline
         );
     }
@@ -87,9 +111,8 @@ contract UniV2LimitsStops is Ownable {
         FeeInfo memory feeInfo,
         uint amountOutMin,
         address[] calldata path,
-        address to,
         uint deadline
-    ) external payable userGasVerified {
+    ) external payable userFeeVerified {
         _ethToTokenLimitOrderPaySpecific(
             user,
             feeAmount,
@@ -97,7 +120,6 @@ contract UniV2LimitsStops is Ownable {
             feeInfo,
             amountOutMin,
             path,
-            to,
             deadline
         );
     }
@@ -109,31 +131,18 @@ contract UniV2LimitsStops is Ownable {
         FeeInfo memory feeInfo,
         uint amountOutMin,
         address[] calldata path,
-        address to,
         uint deadline
     ) private {
         // Pay the execution fee
         uint inputSpentOnFee;
         if (feeInfo.isAUTO) {
-            feeInfo.path[0] = path[0];
             inputSpentOnFee = feeInfo.uni.swapETHForExactTokens{value: msg.value}(feeAmount, feeInfo.path, user, deadline)[0];
         } else {
             _registry.transfer(feeAmount);
             inputSpentOnFee = feeAmount;
         }
 
-        // Reduce amountOutMin proportionally so that the price of execution is the same
-        // as what was intended by the user. Generally we take the execution fee after the trade.
-        // This is done so that the trade executes at the price intended by the user, even though
-        // they'll receive less than if that'd market bought/sold at that price (because they pay
-        // for the execution in regular ETH tx fees). The naive way is to do the trade, then take
-        // the output token, and trade some of that for whatever the fee is paid in - this will
-        // execute at the intended price, but is gas inefficient because it then requires sending
-        // the tokens manually here, rather than inputing the recipient into the Uniswap trade.
-        // Instead, we can send the fee out of the Uniswap trade directly, or directly with ETH,
-        // and reduce amountOutMin proportionally to retain the same execution price (amount in
-        // is reduced, and so amountOutMin has to be reduced proportionally)
-        // Can't do `tradeInput = (msg.value - inputSpentOnFee)` because of stack too deep
+        // *1, *2
         uni.swapExactETHForTokens{value: (msg.value - inputSpentOnFee)}(
             amountOutMin * (msg.value - inputSpentOnFee) / msg.value,
             path,
@@ -158,122 +167,112 @@ contract UniV2LimitsStops is Ownable {
         address to,
         uint deadline
     ) external userVerified {
-        IERC20 token = approveUnapproved(uni, path[0], inputAmount);
-        token.transferFrom(user, address(this), inputAmount);
+        // IERC20 token = approveUnapproved(uni, path[0], inputAmount);
+        // token.transferFrom(user, address(this), inputAmount);
+        transferApproveUnapproved(uni, path[0], inputAmount, user);
         uni.swapExactTokensForETH(inputAmount, amountOutMin, path, to, deadline);
     }
 
-    // function ethToTokenLimitOrderPayDefault(
-    //     address user,
-    //     uint feeAmount,
-    //     IUniswapV2Router02 uni,
-    //     uint amountOutMin,
-    //     address[] calldata path,
-    //     address to,
-    //     uint deadline
-    // ) external userGasVerified {
-    //     _ethToTokenLimitOrderPaySpecific(
-    //         user,
-    //         feeAmount,
-    //         uni,
-    //         _defaultFeeInfo,
-    //         amountOutMin,
-    //         path,
-    //         to,
-    //         deadline
-    //     );
-    // }
+    function tokenToEthLimitOrderPayDefault(
+        address user,
+        uint feeAmount,
+        IUniswapV2Router02 uni,
+        uint inputAmount,
+        uint amountOutMin,
+        address[] calldata path,
+        uint deadline
+    ) external userFeeVerified {
+        FeeInfo memory feeInfo = _defaultFeeInfo;
+        // The fee path only needs to be modified when not paying in ETH (since
+        // the output of the trade is ETH and that can be used) and when the input
+        // token isn't AUTO anyway (since that can be used without a 2nd trade)
+        if (feeInfo.isAUTO && path[0] != feeInfo.path[feeInfo.path.length-1]) {
+            address[] memory newFeePath = new address[](3);
+            newFeePath[0] = path[0];               // src token
+            newFeePath[1] = path[path.length-1];   // WETH since path in tokenToETH ends in WETH
+            newFeePath[2] = feeInfo.path[feeInfo.path.length-1];   // AUTO since feePath here ends in AUTO
+            feeInfo.path = newFeePath;
+        }
+        
+        _tokenToEthLimitOrderPaySpecific(
+            user,
+            feeAmount,
+            uni,
+            feeInfo,
+            inputAmount,
+            amountOutMin,
+            path,
+            deadline
+        );
+    }
 
-    // function ethToTokenLimitOrderPaySpecific(
-    //     address user,
-    //     uint feeAmount,
-    //     IUniswapV2Router02 uni,
-    //     FeeInfo memory feeInfo,
-    //     uint amountOutMin,
-    //     address[] calldata path,
-    //     address to,
-    //     uint deadline
-    // ) external userGasVerified {
-    //     _ethToTokenLimitOrderPaySpecific(
-    //         user,
-    //         feeAmount,
-    //         uni,
-    //         feeInfo,
-    //         amountOutMin,
-    //         path,
-    //         to,
-    //         deadline
-    //     );
-    // }
+    function tokenToEthLimitOrderPaySpecific(
+        address user,
+        uint feeAmount,
+        IUniswapV2Router02 uni,
+        FeeInfo memory feeInfo,
+        uint inputAmount,
+        uint amountOutMin,
+        address[] calldata path,
+        uint deadline
+    ) external userFeeVerified {
+        _tokenToEthLimitOrderPaySpecific(
+            user,
+            feeAmount,
+            uni,
+            feeInfo,
+            inputAmount,
+            amountOutMin,
+            path,
+            deadline
+        );
+    }
 
-    // function _tokenToEthLimitOrderPaySpecific(
-    //     address user,
-    //     uint feeAmount,
-    //     IUniswapV2Router02 uni,
-    //     FeeInfo memory feeInfo,
-    //     uint inputAmount,
-    //     uint amountOutMin,
-    //     address[] calldata path,
-    //     address to,
-    //     uint deadline
-    // ) private {
-    //     // Pay the execution fee
-    //     uint inputSpentOnFee;
-    //     if (feeInfo.isAUTO) {
-    //         if (path[0] == feeInfo.path[feeInfo.path.length-1]) {
-    //             // The user already holds inputAmount of AUTO
-    //             inputSpentOnFee = feeAmount;
-    //         } else {
-    //             feeInfo.path[0] = path[0];
-    //             inputSpentOnFee = feeInfo.uni.swapTokensForExactTokens(feeAmount, inputAmount, feeInfo.path, user, deadline)[0];
-    //         }
-    //     } else {
-    //         feeInfo.path[0] = path[0];
-    //         inputSpentOnFee = feeInfo.uni.swapTokensForExactTokens(feeAmount, inputAmount, feeInfo.path, user, deadline)[0];
-            
-    //         inputSpentOnFee = feeAmount;
-    //     }
+    function _tokenToEthLimitOrderPaySpecific(
+        address user,
+        uint feeAmount,
+        IUniswapV2Router02 uni,
+        FeeInfo memory feeInfo,
+        uint inputAmount,
+        uint amountOutMin,
+        address[] calldata path,
+        uint deadline
+    ) private {
+        // Pay the execution fee
+        uint inputSpentOnFee;
+        if (feeInfo.isAUTO) {
+            // If the src token is AUTO
+            if (path[0] == feeInfo.path[feeInfo.path.length-1]) {
+                // The user already holds inputAmount of AUTO, so don't move them
+                inputSpentOnFee = feeAmount;
+                transferApproveUnapproved(uni, path[0], (inputAmount - inputSpentOnFee), user);
+            } else {
+                transferApproveUnapproved(uni, path[0], inputAmount, user);
+                approveUnapproved(feeInfo.uni, path[0], inputAmount);
+                inputSpentOnFee = feeInfo.uni.swapTokensForExactTokens(feeAmount, inputAmount, feeInfo.path, user, deadline)[0];
+            }
+        } else {
+            transferApproveUnapproved(uni, path[0], inputAmount, user);
+        }
 
-    //     // Reduce amountOutMin proportionally so that the price of execution is the same
-    //     // as what was intended by the user. Generally we take the execution fee after the trade.
-    //     // This is done so that the trade executes at the price intended by the user, even though
-    //     // they'll receive less than if that'd market bought/sold at that price (because they pay
-    //     // for the execution in regular ETH tx fees). The naive way is to do the trade, then take
-    //     // the output token, and trade some of that for whatever the fee is paid in - this will
-    //     // execute at the intended price, but is gas inefficient because it then requires sending
-    //     // the tokens manually here, rather than inputing the recipient into the Uniswap trade.
-    //     // Instead, we can send the fee out of the Uniswap trade directly, or directly with ETH,
-    //     // and reduce amountOutMin proportionally to retain the same execution price (amount in
-    //     // is reduced, and so amountOutMin has to be reduced proportionally)
-    //     // Can't do `tradeInput = (msg.value - inputSpentOnFee)` because of stack too deep
-    //     uni.swapExactETHForTokens{value: (msg.value - inputSpentOnFee)}(
-    //         amountOutMin * (msg.value - inputSpentOnFee) / msg.value,
-    //         path,
-    //         user,
-    //         deadline
-    //     );
-    // }
-
-
-
-
-
+        // *1, *2
+        uni.swapExactTokensForETH(
+            (inputAmount - inputSpentOnFee),
+            amountOutMin * (inputAmount - inputSpentOnFee) / inputAmount,
+            path,
+            // Sending it all to the registry means that the fee will be kept
+            // (if it's in ETH) and the excess sent to the user
+            feeInfo.isAUTO ? user : _registry,
+            deadline
+        );
+    }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    //////////////////////////////////////////////////////////////
+    //                                                          //
+    //                 Token to token limit orders              //
+    //                                                          //
+    //////////////////////////////////////////////////////////////
 
     function tokenToTokenLimitOrder(
         address payable user,
@@ -288,6 +287,130 @@ contract UniV2LimitsStops is Ownable {
         token.transferFrom(user, address(this), inputAmount);
         uni.swapExactTokensForTokens(inputAmount, amountOutMin, path, to, deadline);
     }
+
+    function tokenToTokenLimitOrderPayDefault(
+        address user,
+        uint feeAmount,
+        IUniswapV2Router02 uni,
+        uint inputAmount,
+        uint amountOutMin,
+        address[] calldata path,
+        uint deadline
+    ) external userFeeVerified {
+        FeeInfo memory feeInfo = _defaultFeeInfo;
+        // The fee path only needs to be modified when not paying in ETH (since
+        // the output of the trade is ETH and that can be used) and when the input
+        // token isn't AUTO anyway (since that can be used without a 2nd trade)
+        if (feeInfo.isAUTO && path[0] != feeInfo.path[feeInfo.path.length-1]) {
+            address[] memory newFeePath = new address[](3);
+            newFeePath[0] = path[0];               // src token
+            newFeePath[1] = path[path.length-1];   // WETH since path in tokenToETH ends in WETH
+            newFeePath[2] = feeInfo.path[feeInfo.path.length-1];   // AUTO since feePath here ends in AUTO
+            feeInfo.path = newFeePath;
+        }
+        
+        _tokenToTokenLimitOrderPaySpecific(
+            user,
+            feeAmount,
+            uni,
+            feeInfo,
+            inputAmount,
+            amountOutMin,
+            path,
+            deadline
+        );
+    }
+
+    function tokenToTokenLimitOrderPaySpecific(
+        address user,
+        uint feeAmount,
+        IUniswapV2Router02 uni,
+        FeeInfo memory feeInfo,
+        uint inputAmount,
+        uint amountOutMin,
+        address[] calldata path,
+        uint deadline
+    ) external userFeeVerified {
+        _tokenToTokenLimitOrderPaySpecific(
+            user,
+            feeAmount,
+            uni,
+            feeInfo,
+            inputAmount,
+            amountOutMin,
+            path,
+            deadline
+        );
+    }
+
+    function _tokenToTokenLimitOrderPaySpecific(
+        address user,
+        uint feeAmount,
+        IUniswapV2Router02 uni,
+        FeeInfo memory feeInfo,
+        uint inputAmount,
+        uint amountOutMin,
+        address[] calldata path,
+        uint deadline
+    ) private {
+        // Pay the execution fee
+        uint inputSpentOnFee;
+        if (feeInfo.isAUTO) {
+            // If the src token is AUTO
+            if (path[0] == feeInfo.path[feeInfo.path.length-1]) {
+                // The user already holds inputAmount of AUTO
+                inputSpentOnFee = feeAmount;
+                transferApproveUnapproved(uni, path[0], (inputAmount - inputSpentOnFee), user);
+            // If the dest token is AUTO
+            } else if (path[path.length-1] == feeInfo.path[feeInfo.path.length-1]) {
+                // Do nothing because it'll all get sent to the user, and the
+                // fee will be taken from them after that
+                transferApproveUnapproved(uni, path[0], inputAmount, user);
+            } else {
+                feeInfo.path[0] = path[0];
+                transferApproveUnapproved(uni, path[0], inputAmount, user);
+                approveUnapproved(feeInfo.uni, path[0], inputAmount);
+                inputSpentOnFee = feeInfo.uni.swapTokensForExactTokens(feeAmount, inputAmount, feeInfo.path, user, deadline)[0];
+            }
+        } else {
+            transferApproveUnapproved(uni, path[0], inputAmount, user);
+            feeInfo.path[0] = path[0];
+            approveUnapproved(feeInfo.uni, path[0], inputAmount);
+            inputSpentOnFee = feeInfo.uni.swapTokensForExactETH(feeAmount, inputAmount, feeInfo.path, _registry, deadline)[0];
+        }
+
+        // *1, *2
+        uni.swapExactTokensForTokens(
+            (inputAmount - inputSpentOnFee),
+            amountOutMin * (inputAmount - inputSpentOnFee) / inputAmount,
+            path,
+            user,
+            deadline
+        );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     function ethToTokenStopLoss(
         IUniswapV2Router02 uni,
@@ -333,12 +456,31 @@ contract UniV2LimitsStops is Ownable {
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
+
+
+
     function approveUnapproved(IUniswapV2Router02 uni, address tokenAddr, uint amount) private returns (IERC20 token) {
         token = IERC20(tokenAddr);
         if (token.allowance(address(this), address(uni)) < amount) {
             token.approve(address(uni), MAX_UINT);
         }
     }
+
+    function transferApproveUnapproved(IUniswapV2Router02 uni, address tokenAddr, uint amount, address user) private {
+        IERC20 token = approveUnapproved(uni, tokenAddr, amount);
+        token.transferFrom(user, address(this), amount);
+    }
+
+    function setDefaultFeeInfo(FeeInfo calldata newDefaultFee) external onlyOwner {
+        _defaultFeeInfo = newDefaultFee;
+    }
+
+
+    //////////////////////////////////////////////////////////////
+    //                                                          //
+    //                          Getters                         //
+    //                                                          //
+    //////////////////////////////////////////////////////////////
 
     function getRegistry() external view returns (address) {
         return _registry;
@@ -349,24 +491,27 @@ contract UniV2LimitsStops is Ownable {
     }
 
     function getUserFeeVerifiedForwarder() external view returns (address) {
-        return _userGasVeriForwarder;
+        return _userFeeVeriForwarder;
     }
 
     function getDefaultFeeInfo() external view returns (FeeInfo memory) {
         return _defaultFeeInfo;
     }
 
-    function setDefaultFeeInfo(FeeInfo calldata newDefaultFee) external onlyOwner {
-        _defaultFeeInfo = newDefaultFee;
-    }
+
+    //////////////////////////////////////////////////////////////
+    //                                                          //
+    //                          Modifiers                       //
+    //                                                          //
+    //////////////////////////////////////////////////////////////
 
     modifier userVerified() {
         require(msg.sender == _userVeriForwarder, "LimitsStops: not userForw");
         _;
     }
 
-    modifier userGasVerified() {
-        require(msg.sender == _userGasVeriForwarder, "LimitsStops: not userGasForw");
+    modifier userFeeVerified() {
+        require(msg.sender == _userFeeVeriForwarder, "LimitsStops: not userFeeForw");
         _;
     }
 

@@ -233,9 +233,9 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         (r) = abi.decode(rBytes, (Request));
     }
 
-    function insertToCallData(bytes calldata callData, uint expected_gas, uint startIdx) public pure override returns (bytes memory) {
+    function insertToCallData(bytes calldata callData, uint expectedGas, uint startIdx) public pure override returns (bytes memory) {
         bytes memory cd = callData;
-        bytes memory expectedGasBytes = abi.encode(expected_gas);
+        bytes memory expectedGasBytes = abi.encode(expectedGas);
         for (uint i = 0; i < 32; i++) {
             cd[startIdx+i] = expectedGasBytes[i];
         }
@@ -262,7 +262,7 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
     function executeHashedReq(
         uint id,
         Request calldata r,
-        uint expected_gas
+        uint expectedGas
     )
         external
         override
@@ -275,13 +275,13 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         uint startGas = gasleft();
 
         delete _hashedReqs[id];
-        _execute(r, expected_gas);
+        _execute(r, expectedGas);
         emit HashedReqRemoved(id, true);
 
         gasUsed = startGas - gasleft();
         gasUsed += r.payWithAUTO == true ? GAS_OVERHEAD_AUTO : GAS_OVERHEAD_ETH;
         // Make sure that the expected gas used is within 10% of the actual gas used
-        require(expected_gas * 10 <= gasUsed * 11, "Reg: expected_gas too high");
+        require(expectedGas * 10 <= gasUsed * 11, "Reg: expectedGas too high");
     }
 
     /**
@@ -294,7 +294,7 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         Request calldata r,
         bytes memory dataPrefix,
         bytes memory dataSuffix,
-        uint expected_gas
+        uint expectedGas
     )
         external
         override
@@ -314,23 +314,23 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         );
 
         delete _hashedReqsUnveri[id];
-        _execute(r, expected_gas);
+        _execute(r, expectedGas);
         emit HashedReqUnveriRemoved(id, true);
 
         gasUsed = startGas - gasleft();
         gasUsed += r.payWithAUTO == true ? GAS_OVERHEAD_AUTO : GAS_OVERHEAD_ETH;
         // Make sure that the expected gas used is within 10% of the actual gas used
-        require(expected_gas * 10 <= gasUsed * 11, "Reg: expected_gas too high");
+        require(expectedGas * 10 <= gasUsed * 11, "Reg: expectedGas too high");
     }
 
-    function _execute(Request calldata r, uint expected_gas) private {
+    function _execute(Request calldata r, uint expectedGas) private {
         IOracle orac = _oracle;
         uint ethStartBal = address(this).balance;
         uint feeTotal;
         if (r.payWithAUTO) {
-            feeTotal = expected_gas * orac.getGasPriceFast() * orac.getAUTOPerETH() * PAY_AUTO_BPS / (BASE_BPS * _E_18);
+            feeTotal = expectedGas * orac.getGasPriceFast() * orac.getAUTOPerETH() * PAY_AUTO_BPS / (BASE_BPS * _E_18);
         } else {
-            feeTotal = expected_gas * orac.getGasPriceFast() * PAY_ETH_BPS / BASE_BPS;
+            feeTotal = expectedGas * orac.getGasPriceFast() * PAY_ETH_BPS / BASE_BPS;
         }
 
         // Make the call that the user requested

@@ -81,7 +81,13 @@ def test_tokenToEthStopLoss_rev_input_approve(auto, uni_router2, any, uniLS):
 
 
 def test_tokenToEthStopLoss_rev_sender(a, auto, uniLS):
-    for addr in a:
-        if addr != auto.uf:
-            with reverts(REV_MSG_ONLY_AUTONOMY):
-                uniLS.tokenToEthStopLoss(auto.CHARLIE, UNIV2_ROUTER2_ADDR, E_18, 1, MAX_UINT, [ANY_ADDR, WETH_ADDR], auto.CHARLIE, time.time() * 2, {'from': addr})
+    print(test_tokenToEthStopLoss_rev_sender)
+    print(auto.uf)
+    print(len(list(a) + auto.all))
+    print()
+    for addr in list(a) + auto.all:
+        print(addr, auto.uf, addr != auto.uf, type(addr), type(auto.uf))
+        # if addr != auto.uf:
+        if addr.address != auto.uf.address:
+            with reverts(REV_MSG_USERFORW):
+                uniLS.tokenToEthStopLoss(auto.CHARLIE, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': addr})

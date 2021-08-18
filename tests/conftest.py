@@ -57,6 +57,7 @@ def deploy_initial_AUTO_contracts(AUTO, PriceOracle, Oracle, StakeManager, Regis
         INIT_EXECUTOR_REWARD,
         INIT_REFERAL_REWARD
     )
+    auto.all = [auto.AUTO, auto.po, auto.o, auto.sm, auto.uf, auto.ff, auto.uff, auto.r, auto.m]
     
     auto.AUTO.approve(auto.r, MAX_UINT, auto.FR_CHARLIE)
 
@@ -115,6 +116,8 @@ def uniLS(auto, any, uni_router2, UniV2LimitsStops):
     any.transfer(auto.WHALE, INIT_ANY_BAL, {'from': whale})
     assert any.balanceOf(auto.WHALE) == INIT_ANY_BAL
     any.approve(uni_router2, MAX_UINT, auto.FR_WHALE)
+    auto.AUTO.transfer(auto.WHALE, int(INIT_AUTO_SUPPLY/10), auto.FR_DEPLOYER)
+    auto.AUTO.approve(uni_router2, MAX_UINT, auto.FR_WHALE)
 
     return uniLS
 

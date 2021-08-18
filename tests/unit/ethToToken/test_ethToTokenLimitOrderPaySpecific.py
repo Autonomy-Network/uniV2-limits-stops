@@ -5,16 +5,12 @@ import time
 from utils import *
 
 
-# test reverting by calling from different accounts, and from wrong forwarder
-# really small input amount that doesn't cover the cost of execution
-
-
 def test_ethToTokenLimitOrderPaySpecific_eth(auto, evmMaths, uni_router2, any, uniLS):
     path = [WETH_ADDR, ANY_ADDR]
     input_amount = int(0.1 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(init_output * 1.1)
-    call_data = uniLS.ethToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, limit_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, limit_output, path, time.time() * 2)
     msg_value = input_amount
     any_start_bal = any.balanceOf(auto.CHARLIE)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, True, True, False)
@@ -94,13 +90,13 @@ def test_ethToTokenLimitOrderPaySpecific_eth(auto, evmMaths, uni_router2, any, u
 
 
 def test_ethToTokenLimitOrderPaySpecific_AUTO(auto, evmMaths, uni_router2, any, uniLS):
-    new_default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
+    new_default_fee_info = (UNIV2_ROUTER2_ADDR, (WETH_ADDR, auto.AUTO), True)
 
     path = [WETH_ADDR, ANY_ADDR]
     input_amount = int(0.1 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(init_output * 1.1)
-    call_data = uniLS.ethToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, new_default_fee_info, limit_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, new_default_fee_info, limit_output, path, time.time() * 2)
     msg_value = input_amount
     any_start_bal = any.balanceOf(auto.CHARLIE)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, msg_value, True, True, True)
@@ -189,14 +185,14 @@ def test_ethToTokenLimitOrderPaySpecific_AUTO(auto, evmMaths, uni_router2, any, 
 )
 def test_ethToTokenLimitOrderPaySpecific_random(auto, evmMaths, uni_router2, any, uniLS, input_amount, whale_amount, expected_gas, pay_with_AUTO):
     if pay_with_AUTO:
-        new_default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
+        default_fee_info = (UNIV2_ROUTER2_ADDR, (WETH_ADDR, auto.AUTO), True)
     else:
-        new_default_fee_info = DEFAULT_FEE_INFO
+        default_fee_info = DEFAULT_FEE_INFO
     path = [WETH_ADDR, ANY_ADDR]
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(init_output * 1.1)
     msg_value = input_amount
-    call_data = uniLS.ethToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, new_default_fee_info, limit_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, default_fee_info, limit_output, path, time.time() * 2)
     any_start_bal = any.balanceOf(auto.CHARLIE)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, True, True, pay_with_AUTO)
 
@@ -288,3 +284,10 @@ def test_ethToTokenLimitOrderPaySpecific_random(auto, evmMaths, uni_router2, any
         assert auto.AUTO.balanceOf(uniLS) == 0
         assert auto.AUTO.balanceOf(auto.r) == 0
         assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
+
+
+def test_ethToTokenLimitOrderPaySpecific_rev_sender(a, auto, uniLS):
+    for addr in list(a) + auto.all:
+        if addr.address != auto.uff.address:
+            with reverts(REV_MSG_USERFEEFORW):
+                uniLS.ethToTokenLimitOrderPaySpecific(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, 1, [], time.time() * 2, {'from': addr})
