@@ -348,8 +348,6 @@ contract UniV2LimitsStops is Ownable {
         );
     }
 
-    event Test(uint a);
-
     function _tokenToTokenLimitOrderPaySpecific(
         address user,
         uint feeAmount,
@@ -362,38 +360,27 @@ contract UniV2LimitsStops is Ownable {
     ) private {
         // Pay the execution fee
         uint inputSpentOnFee;
-        emit Test(1);
         if (feeInfo.isAUTO) {
-            emit Test(2);
             // If the src token is AUTO
             if (path[0] == feeInfo.path[feeInfo.path.length-1]) {
-                emit Test(3);
                 // The user already holds inputAmount of AUTO
                 inputSpentOnFee = feeAmount;
                 transferApproveUnapproved(uni, path[0], (inputAmount - inputSpentOnFee), user);
             // If the dest token is AUTO
             } else if (path[path.length-1] == feeInfo.path[feeInfo.path.length-1]) {
-                emit Test(4);
                 // Do nothing because it'll all get sent to the user, and the
                 // fee will be taken from them after that
                 transferApproveUnapproved(uni, path[0], inputAmount, user);
             } else {
-                emit Test(5);
                 transferApproveUnapproved(uni, path[0], inputAmount, user);
-                emit Test(6);
                 approveUnapproved(feeInfo.uni, path[0], inputAmount);
-                emit Test(7);
                 inputSpentOnFee = feeInfo.uni.swapTokensForExactTokens(feeAmount, inputAmount, feeInfo.path, user, deadline)[0];
             }
         } else {
-            emit Test(8);
             transferApproveUnapproved(uni, path[0], inputAmount, user);
-            emit Test(9);
             approveUnapproved(feeInfo.uni, path[0], inputAmount);
-            emit Test(10);
             inputSpentOnFee = feeInfo.uni.swapTokensForExactETH(feeAmount, inputAmount, feeInfo.path, registry, deadline)[0];
         }
-        emit Test(11);
 
         // *1, *2
         uni.swapExactTokensForTokens(
