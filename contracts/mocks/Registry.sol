@@ -64,7 +64,7 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
     // Easier to parse when using native types rather than structs
     event HashedReqAdded(
         uint indexed id,
-        address payable user,
+        address indexed user,
         address target,
         address payable referer,
         bytes callData,
