@@ -1,5 +1,5 @@
 hypothesis:
-    max_examples: 50
+    max_examples: 200
 
 compiler:
   solc:

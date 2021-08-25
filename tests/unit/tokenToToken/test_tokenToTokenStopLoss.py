@@ -5,15 +5,15 @@ import time
 
 
 @given(
-    input_amount=strategy('uint', min_value=10000, max_value=INIT_ANY_BAL/2),
+    input_amount=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL),
     # Can't know the current max output outside of the fcn, so having to use INIT_ETH_BAL
     min_output=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL),
     max_output=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL),
-    whale_amount=strategy('uint', min_value=10000, max_value=INIT_ANY_BAL/2)
+    whale_amount=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL)
 )
-def test_tokenToEthStopLoss(auto, uni_router2, any, uniLS, input_amount, min_output, max_output, whale_amount):
-    path = [ANY_ADDR, WETH_ADDR]
-    call_data = uniLS.tokenToEthStopLoss.encode_input(auto.CHARLIE, UNIV2_ROUTER2_ADDR, input_amount, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
+def test_tokenToTokenStopLoss(auto, uni_router2, any, dai, uniLS, input_amount, min_output, max_output, whale_amount):
+    path = [ANY_ADDR, WETH_ADDR, dai]
+    call_data = uniLS.tokenToTokenStopLoss.encode_input(auto.CHARLIE, UNIV2_ROUTER2_ADDR, input_amount, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
     msg_value = int(0.01 * E_18)
     eth_start_bal = auto.CHARLIE.balance()
     req = (auto.CHARLIE.address, uniLS.address, ADDR_0, call_data, msg_value, 0, True, False, False)
@@ -25,6 +25,7 @@ def test_tokenToEthStopLoss(auto, uni_router2, any, uniLS, input_amount, min_out
     assert any.balanceOf(auto.CHARLIE) == input_amount
     assert uniLS.balance() == 0
     assert any.balanceOf(uniLS) == 0
+    assert dai.balanceOf(auto.CHARLIE) == 0
 
     # Make the request
     tx = auto.r.newReq(uniLS, ADDR_0, call_data, 0, True, False, False, {'value': msg_value, 'gasPrice': INIT_GAS_PRICE_FAST, 'from': auto.CHARLIE})
@@ -35,37 +36,35 @@ def test_tokenToEthStopLoss(auto, uni_router2, any, uniLS, input_amount, min_out
     assert any.balanceOf(auto.CHARLIE) == input_amount
     assert uniLS.balance() == 0
     assert any.balanceOf(uniLS) == 0
+    assert dai.balanceOf(auto.CHARLIE) == 0
 
-    # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
-    uni_router2.swapExactTokensForETH(whale_amount, 1, path, auto.WHALE, time.time()*2, {'from': auto.WHALE})
+    uni_router2.swapExactTokensForTokens(whale_amount, 1, path, auto.WHALE, time.time()*2, {'from': auto.WHALE})
 
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     if cur_output < min_output:
-        print('a')
         with reverts(REV_MSG_UNI_OUTPUT):
             auto.r.executeHashedReq(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
     elif cur_output > max_output:
-        print('b')
         with reverts(REV_MSG_PRICE_HIGH):
             auto.r.executeHashedReq(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
     else:
-        print('c')
         # Execute successfully :D
         # expected_gas = auto.r.executeHashedReq.call(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
         auto.r.executeHashedReq(0, req, EXPECTED_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
 
-        assert auto.CHARLIE.balance() >= eth_start_bal - msg_value - req_eth_cost + cur_output
+        assert auto.CHARLIE.balance() >= eth_start_bal - msg_value - req_eth_cost
         assert any.allowance(uniLS, UNIV2_ROUTER2_ADDR) == MAX_UINT - input_amount
         assert any.balanceOf(auto.CHARLIE) == 0
+        assert dai.balanceOf(auto.CHARLIE) == cur_output
 
 
-def test_tokenToEthStopLoss_rev_input_approve(auto, uni_router2, any, uniLS):
+def test_tokenToTokenStopLoss_rev_input_approve(auto, uni_router2, any, uniLS):
     # For 1 ANY
     input_amount = E_18
     path = [ANY_ADDR, WETH_ADDR]
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(cur_output * 1.1)
-    call_data = uniLS.tokenToEthStopLoss.encode_input(auto.CHARLIE, UNIV2_ROUTER2_ADDR, input_amount, limit_output, MAX_UINT, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.tokenToTokenStopLoss.encode_input(auto.CHARLIE, UNIV2_ROUTER2_ADDR, input_amount, limit_output, MAX_UINT, path, auto.CHARLIE, time.time() * 2)
     msg_value = int(0.01 * E_18)
     req = (auto.CHARLIE.address, uniLS.address, ADDR_0, call_data, msg_value, 0, True, False, False)
 
@@ -75,16 +74,17 @@ def test_tokenToEthStopLoss_rev_input_approve(auto, uni_router2, any, uniLS):
     auto.r.newReq(uniLS, ADDR_0, call_data, 0, True, False, False, {'value': msg_value, 'gasPrice': INIT_GAS_PRICE_FAST, 'from': auto.CHARLIE})
 
     # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
+    print(any.balanceOf(auto.WHALE))
     whale_amount = 10**22
-    uni_router2.swapExactTokensForETH(whale_amount, 1, path, auto.WHALE, time.time()*2, {'from': auto.WHALE})
+    uni_router2.swapExactTokensForTokens(whale_amount, 1, path, auto.WHALE, time.time()*2, {'from': auto.WHALE})
 
     eth_start_bal = auto.CHARLIE.balance()
     with reverts(REV_MSG_EXCEED_ALLOWANCE):
         auto.r.executeHashedReq(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
 
 
-def test_tokenToEthStopLoss_rev_sender(a, auto, uniLS):
+def test_tokenToTokenStopLoss_rev_sender(a, auto, uniLS):
     for addr in list(a) + auto.all:
         if addr.address != auto.uf.address:
             with reverts(REV_MSG_USERFORW):
-                uniLS.tokenToEthStopLoss(auto.CHARLIE, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': addr})
+                uniLS.tokenToTokenStopLoss(auto.CHARLIE, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': addr})

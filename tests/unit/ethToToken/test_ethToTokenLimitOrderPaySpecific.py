@@ -178,8 +178,8 @@ def test_ethToTokenLimitOrderPaySpecific_AUTO(auto, evmMaths, uni_router2, any, 
 
 
 @given(
-    input_amount=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL),
-    whale_amount=strategy('uint', min_value=10000, max_value=INIT_ANY_BAL),
+    input_amount=strategy('uint', min_value=MIN_RAND_INPUT_ETH, max_value=INIT_ETH_BAL),
+    whale_amount=strategy('uint', min_value=MIN_RAND_INPUT_TOKEN, max_value=INIT_ANY_BAL/2),
     expected_gas=strategy('uint', min_value=MIN_GAS, max_value=EXPECTED_GAS),
     pay_with_AUTO=strategy('bool')
 )

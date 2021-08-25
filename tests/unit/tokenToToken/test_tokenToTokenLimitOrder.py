@@ -5,7 +5,7 @@ import time
 
 
 @given(
-    input_amount=strategy('uint', min_value=10000, max_value=INIT_ANY_BAL),
+    input_amount=strategy('uint', min_value=10000, max_value=INIT_ANY_BAL/2),
     whale_amount=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL)
 )
 def test_tokenToTokenLimitOrder(auto, uni_router2, any, dai, uniLS, input_amount, whale_amount):

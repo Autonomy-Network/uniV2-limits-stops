@@ -5,12 +5,13 @@ import time
 from utils import *
 
 
-def test_tokenToTokenLimitOrderPayDefault_eth(auto, evmMaths, uni_router2, any, dai, uniLS):
+def test_tokenToTokenLimitOrderPaySpecific_eth(auto, evmMaths, uni_router2, any, dai, uniLS):
+    default_fee_info = (UNIV2_ROUTER2_ADDR, (any, WETH_ADDR), False)
     path = [ANY_ADDR, WETH_ADDR, dai]
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(init_output * 1.1)
-    call_data = uniLS.tokenToTokenLimitOrderPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, input_amount, limit_output, path, time.time() * 2)
+    call_data = uniLS.tokenToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, limit_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, False)
 
     any.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -108,15 +109,13 @@ def test_tokenToTokenLimitOrderPayDefault_eth(auto, evmMaths, uni_router2, any, 
     assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
 
-def test_tokenToTokenLimitOrderPayDefault_AUTO(auto, evmMaths, uni_router2, any, dai, uniLS):
-    default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-    uniLS.setDefaultFeeInfo(default_fee_info)
-
+def test_tokenToTokenLimitOrderPaySpecific_AUTO(auto, evmMaths, uni_router2, any, dai, uniLS):
+    default_fee_info = (UNIV2_ROUTER2_ADDR, (any, WETH_ADDR, auto.AUTO), True)
     path = [ANY_ADDR, WETH_ADDR, dai]
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(init_output * 1.1)
-    call_data = uniLS.tokenToTokenLimitOrderPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, input_amount, limit_output, path, time.time() * 2)
+    call_data = uniLS.tokenToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, limit_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, True)
 
     any.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -139,7 +138,7 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO(auto, evmMaths, uni_router2, any,
     assert auto.AUTO.balanceOf(auto.EXEC) == 0
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
     # Make the request
     tx = auto.r.newReq(uniLS, auto.DENICE, call_data, 0, True, True, True, {'gasPrice': INIT_GAS_PRICE_FAST, 'from': auto.CHARLIE})
@@ -162,7 +161,7 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO(auto, evmMaths, uni_router2, any,
     assert auto.AUTO.balanceOf(auto.EXEC) == 0
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
     # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
     whale_amount = 10**23
@@ -185,7 +184,7 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO(auto, evmMaths, uni_router2, any,
     assert auto.AUTO.balanceOf(auto.EXEC) == 0
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
     fee_output = get_AUTO_for_exec(evmMaths, EXPECTED_GAS, INIT_AUTO_PER_ETH_WEI, INIT_GAS_PRICE_FAST)
     fee_input = uni_router2.swapTokensForExactTokens(fee_output, MAX_UINT, [any, WETH_ADDR, auto.AUTO], auto.WHALE, time.time()*2, auto.FR_WHALE).return_value[0]
@@ -216,18 +215,16 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO(auto, evmMaths, uni_router2, any,
     assert auto.AUTO.balanceOf(auto.EXEC) == fee_output
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
 
-def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_from_AUTO(auto, evmMaths, uni_router2, any, dai, uniLS):
-    default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-    uniLS.setDefaultFeeInfo(default_fee_info)
-
+def test_tokenToTokenLimitOrderPaySpecific_AUTO_trade_from_AUTO(auto, evmMaths, uni_router2, any, dai, uniLS):
+    default_fee_info = (UNIV2_ROUTER2_ADDR, [auto.AUTO], True)
     path = [auto.AUTO, WETH_ADDR, dai]
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(init_output * 1.1)
-    call_data = uniLS.tokenToTokenLimitOrderPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, input_amount, limit_output, path, time.time() * 2)
+    call_data = uniLS.tokenToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, limit_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, True)
 
     auto.AUTO.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -251,7 +248,7 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_from_AUTO(auto, evmMaths, u
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
     # Make the request
     tx = auto.r.newReq(uniLS, auto.DENICE, call_data, 0, True, True, True, {'gasPrice': INIT_GAS_PRICE_FAST, 'from': auto.CHARLIE})
@@ -275,7 +272,7 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_from_AUTO(auto, evmMaths, u
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
     # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
     whale_amount = 10**23
@@ -300,7 +297,7 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_from_AUTO(auto, evmMaths, u
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
     fee_output = get_AUTO_for_exec(evmMaths, EXPECTED_GAS, INIT_AUTO_PER_ETH_WEI, INIT_GAS_PRICE_FAST)
     fee_input = fee_output
@@ -331,18 +328,16 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_from_AUTO(auto, evmMaths, u
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == MAX_UINT - (input_amount - fee_input)
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
 
-def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_to_AUTO(auto, evmMaths, uni_router2, any, dai, uniLS):
-    default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-    uniLS.setDefaultFeeInfo(default_fee_info)
-
+def test_tokenToTokenLimitOrderPaySpecific_AUTO_trade_to_AUTO(auto, evmMaths, uni_router2, any, dai, uniLS):
+    default_fee_info = (UNIV2_ROUTER2_ADDR, [auto.AUTO], True)
     path = [any, WETH_ADDR, auto.AUTO]
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(init_output * 1.1)
-    call_data = uniLS.tokenToTokenLimitOrderPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, input_amount, limit_output, path, time.time() * 2)
+    call_data = uniLS.tokenToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, limit_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, True)
 
     any.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -366,7 +361,7 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_to_AUTO(auto, evmMaths, uni
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
     # Make the request
     tx = auto.r.newReq(uniLS, auto.DENICE, call_data, 0, True, True, True, {'gasPrice': INIT_GAS_PRICE_FAST, 'from': auto.CHARLIE})
@@ -390,7 +385,7 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_to_AUTO(auto, evmMaths, uni
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
     # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
     whale_amount = 10**23
@@ -415,7 +410,7 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_to_AUTO(auto, evmMaths, uni
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
     fee_output = get_AUTO_for_exec(evmMaths, EXPECTED_GAS, INIT_AUTO_PER_ETH_WEI, INIT_GAS_PRICE_FAST)
     # Assumes the traded token is not AUTO
@@ -445,7 +440,7 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_to_AUTO(auto, evmMaths, uni
     assert auto.AUTO.balanceOf(uniLS) == 0
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == 0
-    assert uniLS.getDefaultFeeInfo() == default_fee_info
+    assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
 
 @given(
@@ -456,22 +451,23 @@ def test_tokenToTokenLimitOrderPayDefault_AUTO_trade_to_AUTO(auto, evmMaths, uni
     expected_gas=strategy('uint', min_value=MIN_GAS, max_value=EXPECTED_GAS),
     pay_with_AUTO=strategy('bool')
 )
-def test_tokenToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, any, dai, uniLS, input_token_id, output_token_id, input_amount, whale_amount, expected_gas, pay_with_AUTO):
+def test_tokenToTokenLimitOrderPaySpecific_random(auto, evmMaths, uni_router2, any, dai, uniLS, input_token_id, output_token_id, input_amount, whale_amount, expected_gas, pay_with_AUTO):
     id_to_token = {1: any, 2: dai, 3: auto.AUTO}
     
     # Can't trade the same token for itself
     if input_token_id != output_token_id:
         input_token = id_to_token[input_token_id]
         output_token = id_to_token[output_token_id]
-        if pay_with_AUTO:
-            default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-            uniLS.setDefaultFeeInfo(default_fee_info)
+        if pay_with_AUTO and input_token != auto.AUTO and output_token != auto.AUTO:
+            default_fee_info = (UNIV2_ROUTER2_ADDR, (input_token, WETH_ADDR, auto.AUTO), True)
+        elif not pay_with_AUTO:
+            default_fee_info = (UNIV2_ROUTER2_ADDR, (input_token, WETH_ADDR), False)
         else:
-            default_fee_info = DEFAULT_FEE_INFO
+            default_fee_info = (UNIV2_ROUTER2_ADDR, [auto.AUTO], True)
         path = [input_token, WETH_ADDR, output_token]
         init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
         limit_output = int(init_output * 1.1)
-        call_data = uniLS.tokenToTokenLimitOrderPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, input_amount, limit_output, path, time.time() * 2)
+        call_data = uniLS.tokenToTokenLimitOrderPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, limit_output, path, time.time() * 2)
         req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, pay_with_AUTO)
 
         input_token.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -495,7 +491,7 @@ def test_tokenToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, an
         assert auto.AUTO.balanceOf(uniLS) == 0
         assert auto.AUTO.balanceOf(auto.r) == 0
         assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == 0
-        assert uniLS.getDefaultFeeInfo() == default_fee_info
+        assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
         # Make the request
         tx = auto.r.newReq(uniLS, auto.DENICE, call_data, 0, True, True, pay_with_AUTO, {'gasPrice': INIT_GAS_PRICE_FAST, 'from': auto.CHARLIE})
@@ -519,7 +515,7 @@ def test_tokenToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, an
         assert auto.AUTO.balanceOf(uniLS) == 0
         assert auto.AUTO.balanceOf(auto.r) == 0
         assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == 0
-        assert uniLS.getDefaultFeeInfo() == default_fee_info
+        assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
         # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
         uni_router2.swapExactTokensForTokens(whale_amount, 1, path[::-1], auto.WHALE, time.time()*2, {'from': auto.WHALE})
@@ -542,7 +538,7 @@ def test_tokenToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, an
         assert auto.AUTO.balanceOf(uniLS) == 0
         assert auto.AUTO.balanceOf(auto.r) == 0
         assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == 0
-        assert uniLS.getDefaultFeeInfo() == default_fee_info
+        assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
         if pay_with_AUTO:
             fee_output = get_AUTO_for_exec(evmMaths, expected_gas, INIT_AUTO_PER_ETH_WEI, INIT_GAS_PRICE_FAST)
@@ -572,17 +568,14 @@ def test_tokenToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, an
         cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
         # Not enough ETH to pay the fee
         if input_amount < fee_input:
-            print('a')
             with reverts():
                 tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
         # In the case of ETH to token where the token is less valuable, it shouldn't be an issue to
         # trade small amounts, just just to have a consistent testing method
         elif input_amount >= fee_input + MIN_TRADE_AMOUNT and cur_output < limit_output:
-            print('b')
             with reverts(REV_MSG_UNI_OUTPUT):
                 tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
         elif input_amount >= fee_input + MIN_TRADE_AMOUNT and cur_output >= limit_output:
-            print('c')
             assert uni_router2.getAmountsOut(input_amount, path)[-1] >= limit_output
 
             tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
@@ -606,11 +599,11 @@ def test_tokenToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, an
             assert auto.AUTO.balanceOf(uniLS) == 0
             assert auto.AUTO.balanceOf(auto.r) == 0
             assert auto.AUTO.allowance(uniLS, UNIV2_ROUTER2_ADDR) == (MAX_UINT - allowance_used if input_token == auto.AUTO else 0)
-            assert uniLS.getDefaultFeeInfo() == default_fee_info
+            assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
 
-def test_tokenToTokenLimitOrderPayDefault_rev_sender(a, auto, uniLS):
+def test_tokenToTokenLimitOrderPaySpecific_rev_sender(a, auto, uniLS):
     for addr in list(a) + auto.all:
         if addr.address != auto.uff.address:
             with reverts(REV_MSG_USERFEEFORW):
-                uniLS.tokenToTokenLimitOrderPayDefault(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, E_18, 1, [], time.time() * 2, {'from': addr})
+                uniLS.tokenToTokenLimitOrderPaySpecific(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, E_18, 1, [], time.time() * 2, {'from': addr})

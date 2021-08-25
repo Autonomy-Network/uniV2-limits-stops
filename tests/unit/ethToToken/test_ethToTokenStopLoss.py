@@ -7,8 +7,8 @@ import time
 @given(
     input_amount=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL),
     # Can't know the current max output outside of the fcn, so having to use INIT_ETH_BAL
-    min_output=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL),
-    max_output=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL),
+    min_output=strategy('uint', min_value=10000, max_value=INIT_ANY_BAL/2),
+    max_output=strategy('uint', min_value=10000, max_value=INIT_ANY_BAL/2),
     whale_amount=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL)
 )
 def test_ethToTokenStopLoss_random(auto, uni_router2, any, uniLS, input_amount, min_output, max_output, whale_amount):
@@ -33,7 +33,7 @@ def test_ethToTokenStopLoss_random(auto, uni_router2, any, uniLS, input_amount, 
 
     # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
     any.approve(uni_router2, whale_amount, auto.FR_WHALE)
-    uni_router2.swapExactETHForTokens(1, [WETH_ADDR, ANY_ADDR], auto.WHALE, time.time()*2, {'value': whale_amount, 'from': auto.WHALE})
+    uni_router2.swapExactETHForTokens(1, path, auto.WHALE, time.time()*2, {'value': whale_amount, 'from': auto.WHALE})
 
     assert auto.CHARLIE.balance() == INIT_ETH_BAL - msg_value - req_eth_cost
     assert uniLS.balance() == 0
@@ -41,12 +41,15 @@ def test_ethToTokenStopLoss_random(auto, uni_router2, any, uniLS, input_amount, 
 
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     if cur_output < min_output:
+        print('a')
         with reverts(REV_MSG_UNI_OUTPUT):
             auto.r.executeHashedReq(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
     elif cur_output > max_output:
+        print('b')
         with reverts(REV_MSG_PRICE_HIGH):
             auto.r.executeHashedReq(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
     else:
+        print('c')
         # Execute successfully :D
         expected_gas = auto.r.executeHashedReq.call(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
         tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})

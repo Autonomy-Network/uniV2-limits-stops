@@ -6,7 +6,7 @@ import time
 
 @given(
     input_amount=strategy('uint', min_value=10000, max_value=INIT_ETH_BAL),
-    whale_amount=strategy('uint', min_value=10000, max_value=INIT_ANY_BAL)
+    whale_amount=strategy('uint', min_value=10000, max_value=INIT_ANY_BAL/2)
 )
 def test_ethToTokenLimitOrder_random(auto, uni_router2, any, uniLS, input_amount, whale_amount):
     path = [WETH_ADDR, ANY_ADDR]

@@ -134,7 +134,6 @@ contract UniV2LimitsStops is Ownable {
         );
     }
 
-
     //////////////////////////////////////////////////////////////
     //                                                          //
     //                  ETH to token limit orders               //
@@ -200,9 +199,8 @@ contract UniV2LimitsStops is Ownable {
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
-        address to,
         uint deadline
-    ) external payable userVerified {
+    ) external payable userFeeVerified {
         uint[] memory amounts = _ethToTokenPayDefault(user, feeAmount, uni, UniArgs(0, amountOutMin, path, deadline));
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
@@ -215,9 +213,8 @@ contract UniV2LimitsStops is Ownable {
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
-        address to,
         uint deadline
-    ) external payable userVerified {
+    ) external payable userFeeVerified {
         uint[] memory amounts = _ethToTokenPaySpecific(
             user,
             feeAmount,
@@ -368,9 +365,8 @@ contract UniV2LimitsStops is Ownable {
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
-        address to,
         uint deadline
-    ) external userVerified {
+    ) external userFeeVerified {
         uint[] memory amounts = _tokenToEthPayDefault(
             user,
             feeAmount,
@@ -380,7 +376,7 @@ contract UniV2LimitsStops is Ownable {
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
-    function tokenToEthStopLossPayDefault(
+    function tokenToEthStopLossPaySpecific(
         address user,
         uint feeAmount,
         IUniswapV2Router02 uni,
@@ -389,13 +385,13 @@ contract UniV2LimitsStops is Ownable {
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
-        address to,
         uint deadline
-    ) external userVerified {
-        uint[] memory amounts = _tokenToEthPayDefault(
+    ) external userFeeVerified {
+        uint[] memory amounts = _tokenToEthPaySpecific(
             user,
             feeAmount,
             uni,
+            feeInfo,
             UniArgs(inputAmount, amountOutMin, path, deadline)
         );
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
@@ -551,9 +547,8 @@ contract UniV2LimitsStops is Ownable {
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
-        address to,
         uint deadline
-    ) external userVerified {
+    ) external userFeeVerified {
         uint[] memory amounts = _tokenToTokenPayDefault(
             user,
             feeAmount,
@@ -572,9 +567,8 @@ contract UniV2LimitsStops is Ownable {
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
-        address to,
         uint deadline
-    ) external userVerified {
+    ) external userFeeVerified {
         uint[] memory amounts = _tokenToTokenPaySpecific(
             user,
             feeAmount,

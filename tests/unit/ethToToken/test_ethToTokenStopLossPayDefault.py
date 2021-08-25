@@ -5,12 +5,12 @@ import time
 from utils import *
 
 
-def test_ethToTokenLimitOrderPayDefault_eth(auto, evmMaths, uni_router2, any, uniLS):
+def test_ethToTokenStopLossPayDefault_eth(auto, evmMaths, uni_router2, any, uniLS):
     path = [WETH_ADDR, ANY_ADDR]
     input_amount = int(0.1 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
-    limit_output = int(init_output * 1.1)
-    call_data = uniLS.ethToTokenLimitOrderPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, limit_output, path, time.time() * 2)
+    max_output = int(init_output * 0.9)
+    call_data = uniLS.ethToTokenStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, 1, max_output, path, time.time() * 2)
     msg_value = input_amount
     any_start_bal = any.balanceOf(auto.CHARLIE)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, True, True, False)
@@ -47,10 +47,10 @@ def test_ethToTokenLimitOrderPayDefault_eth(auto, evmMaths, uni_router2, any, un
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
-    # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
-    whale_amount = 10**22
-    uni_router2.swapExactTokensForETH(whale_amount, 1, path[::-1], auto.WHALE, time.time()*2, auto.FR_WHALE)
+    whale_amount = 10**20
+    uni_router2.swapExactETHForTokens(1, path, auto.WHALE, time.time()*2, {'value': whale_amount,'from': auto.WHALE})
 
+    assert uni_router2.getAmountsOut(msg_value, path)[-1] <= max_output
     assert auto.CHARLIE.balance() == INIT_ETH_BAL - msg_value - req_eth_cost
     assert auto.EXEC.balance() == INIT_ETH_BAL
     assert uniLS.balance() == 0
@@ -89,15 +89,15 @@ def test_ethToTokenLimitOrderPayDefault_eth(auto, evmMaths, uni_router2, any, un
     assert uniLS.getDefaultFeeInfo() == DEFAULT_FEE_INFO
 
 
-def test_ethToTokenLimitOrderPayDefault_AUTO(auto, evmMaths, uni_router2, any, uniLS):
+def test_ethToTokenStopLossPayDefault_AUTO(auto, evmMaths, uni_router2, any, uniLS):
     default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
     uniLS.setDefaultFeeInfo(default_fee_info)
 
     path = [WETH_ADDR, ANY_ADDR]
     input_amount = int(0.1 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
-    limit_output = int(init_output * 1.1)
-    call_data = uniLS.ethToTokenLimitOrderPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, limit_output, path, time.time() * 2)
+    max_output = int(init_output * 0.9)
+    call_data = uniLS.ethToTokenStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, 1, max_output, path, time.time() * 2)
     msg_value = input_amount
     any_start_bal = any.balanceOf(auto.CHARLIE)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, msg_value, True, True, True)
@@ -134,10 +134,10 @@ def test_ethToTokenLimitOrderPayDefault_AUTO(auto, evmMaths, uni_router2, any, u
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert uniLS.getDefaultFeeInfo() == default_fee_info
 
-    # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
-    whale_amount = 10**22
-    uni_router2.swapExactTokensForETH(whale_amount, 1, path[::-1], auto.WHALE, time.time()*2, auto.FR_WHALE)
+    whale_amount = 10**20
+    uni_router2.swapExactETHForTokens(1, path, auto.WHALE, time.time()*2, {'value': whale_amount, 'from': auto.WHALE})
 
+    assert uni_router2.getAmountsOut(msg_value, path)[-1] <= max_output
     assert auto.CHARLIE.balance() == INIT_ETH_BAL - msg_value - req_eth_cost
     assert auto.EXEC.balance() == INIT_ETH_BAL
     assert uniLS.balance() == 0
@@ -180,11 +180,13 @@ def test_ethToTokenLimitOrderPayDefault_AUTO(auto, evmMaths, uni_router2, any, u
 
 @given(
     input_amount=strategy('uint', min_value=MIN_RAND_INPUT_ETH, max_value=INIT_ETH_BAL),
-    whale_amount=strategy('uint', min_value=MIN_RAND_INPUT_TOKEN, max_value=INIT_ANY_BAL/2),
+    min_output=strategy('uint', max_value=INIT_ANY_BAL/2),
+    max_output=strategy('uint', max_value=INIT_ANY_BAL/2),
+    whale_amount=strategy('uint', min_value=MIN_RAND_INPUT_ETH, max_value=INIT_ETH_BAL),
     expected_gas=strategy('uint', min_value=MIN_GAS, max_value=EXPECTED_GAS),
     pay_with_AUTO=strategy('bool')
 )
-def test_ethToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, any, uniLS, input_amount, whale_amount, expected_gas, pay_with_AUTO):
+def test_ethToTokenStopLossPayDefault_random(auto, evmMaths, uni_router2, any, uniLS, input_amount, min_output, max_output, whale_amount, expected_gas, pay_with_AUTO):
     if pay_with_AUTO:
         default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
         uniLS.setDefaultFeeInfo(default_fee_info)
@@ -192,9 +194,9 @@ def test_ethToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, any,
         default_fee_info = DEFAULT_FEE_INFO
     path = [WETH_ADDR, ANY_ADDR]
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
-    limit_output = int(init_output * 1.1)
+    max_output = int(init_output * 0.9)
     msg_value = input_amount
-    call_data = uniLS.ethToTokenLimitOrderPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, limit_output, path, time.time() * 2)
+    call_data = uniLS.ethToTokenStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, min_output, max_output, path, time.time() * 2)
     any_start_bal = any.balanceOf(auto.CHARLIE)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, True, True, pay_with_AUTO)
 
@@ -230,8 +232,7 @@ def test_ethToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, any,
     assert auto.AUTO.balanceOf(auto.r) == 0
     assert uniLS.getDefaultFeeInfo() == default_fee_info
 
-    # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
-    uni_router2.swapExactTokensForETH(whale_amount, 1, path[::-1], auto.WHALE, time.time()*2, auto.FR_WHALE)
+    uni_router2.swapExactETHForTokens(1, path, auto.WHALE, time.time()*2, {'value': whale_amount, 'from': auto.WHALE})
 
     assert auto.CHARLIE.balance() == INIT_ETH_BAL - msg_value - req_eth_cost
     assert auto.EXEC.balance() == INIT_ETH_BAL
@@ -254,16 +255,20 @@ def test_ethToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, any,
         fee_input = evmMaths.mul3div1(expected_gas, INIT_GAS_PRICE_FAST, PAY_ETH_BPS, BASE_BPS)
 
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
+    print('derp', input_amount, max_output, (min_output*(input_amount-fee_input)/input_amount))
     # Not enough ETH to pay the fee
     if msg_value < fee_input:
         with reverts():
             tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
     # In the case of ETH to token where the token is less valuable, it shouldn't be an issue to
     # trade small amounts, just just to have a consistent testing method
-    elif msg_value >= fee_input + MIN_TRADE_AMOUNT and cur_output < limit_output:
+    elif msg_value >= fee_input + MIN_TRADE_AMOUNT and cur_output < (min_output*(input_amount-fee_input)/input_amount):
         with reverts(REV_MSG_UNI_OUTPUT):
             tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
-    elif msg_value >= fee_input + MIN_TRADE_AMOUNT and cur_output >= limit_output:
+    elif msg_value >= fee_input + MIN_TRADE_AMOUNT and cur_output > max_output:
+        with reverts(REV_MSG_PRICE_HIGH):
+            tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
+    elif msg_value >= fee_input + MIN_TRADE_AMOUNT and cur_output < max_output:
         if pay_with_AUTO:
             # Assumes the traded token is not AUTO
             trade_output = uni_router2.getAmountsOut(msg_value - fee_input, path)[-1]
@@ -288,8 +293,8 @@ def test_ethToTokenLimitOrderPayDefault_random(auto, evmMaths, uni_router2, any,
         assert uniLS.getDefaultFeeInfo() == default_fee_info
 
 
-def test_ethToTokenLimitOrderPayDefault_rev_sender(a, auto, uniLS):
+def test_ethToTokenStopLossPayDefault_rev_sender(a, auto, uniLS):
     for addr in list(a) + auto.all:
         if addr.address != auto.uff.address:
             with reverts(REV_MSG_USERFEEFORW):
-                uniLS.ethToTokenLimitOrderPayDefault(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, 1, [], time.time() * 2, {'from': addr})
+                uniLS.ethToTokenStopLossPayDefault(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, 1, 1, [], time.time() * 2, {'from': addr})
