@@ -7,10 +7,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "../interfaces/IUniswapV2Router02.sol";
 
 
-// TODO: get returned data from calls, so if they revert, can pass on the reason
-// TODO: add safeTransfer
-// TODO: add withdraw for ERC20s for fools who send tokens to this contract
-
 // Comments referenced throughout
 // *1:
 // Reduce amountOutMin proportionally so that the price of execution is the same
@@ -32,6 +28,16 @@ import "../interfaces/IUniswapV2Router02.sol";
 // Can't do `tradeInput = (inputAmount - inputSpentOnFee)` because of stack too deep
 
 
+/**
+* @title    UniV2LimitsStops
+* @notice   Wraps around an arbitrary UniV2 router contract and adds conditions
+*           of price to create limit orders and stop losses. Ensures that
+*           only a specific user can call a trade because the Autonomy Registry
+*           forces that the first argument of the calldata is the user's address
+*           and this contract knows that condition is true when the call is coming
+*           from an appropriate proxy
+* @author   Quantaf1re (James Key)
+*/
 contract UniV2LimitsStops is Ownable {
 
     using SafeERC20 for IERC20;
@@ -144,6 +150,10 @@ contract UniV2LimitsStops is Ownable {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
+    /**
+     * @notice  Only calls swapExactETHForTokens if the output is above
+     *          a certain amount
+     */
     function ethToTokenLimitOrder(
         uint maxGasPrice,
         IUniswapV2Router02 uni,
@@ -155,6 +165,11 @@ contract UniV2LimitsStops is Ownable {
         uni.swapExactETHForTokens{value: msg.value}(amountOutMin, path, to, deadline);
     }
 
+    /**
+     * @notice  Only calls swapExactETHForTokens if the output is above
+     *          a certain amount. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the default fee token, to the registry
+     */
     function ethToTokenLimitOrderPayDefault(
         address user,
         uint feeAmount,
@@ -167,6 +182,11 @@ contract UniV2LimitsStops is Ownable {
         _ethToTokenPayDefault(user, feeAmount, uni, UniArgs(0, amountOutMin, path, deadline));
     }
 
+    /**
+     * @notice  Only calls swapExactETHForTokens if the output is above
+     *          a certain amount. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the specified fee token, to the registry
+     */
     function ethToTokenLimitOrderPaySpecific(
         address user,
         uint feeAmount,
@@ -187,6 +207,13 @@ contract UniV2LimitsStops is Ownable {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
+    /**
+     * @notice  Only calls swapExactETHForTokens if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' which triggers the trade, whereas
+     *          `amountOutMin` is there incase the user wants to control
+     *          slippage
+     */
     function ethToTokenStopLoss(
         uint maxGasPrice,
         IUniswapV2Router02 uni,
@@ -200,6 +227,14 @@ contract UniV2LimitsStops is Ownable {
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
+    /**
+     * @notice  Only calls swapExactETHForTokens if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' which triggers the trade, whereas
+     *          `amountOutMin` is there incase the user wants to control
+     *          slippage. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the default fee token, to the registry
+     */
     function ethToTokenStopLossPayDefault(
         address user,
         uint feeAmount,
@@ -214,6 +249,14 @@ contract UniV2LimitsStops is Ownable {
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
+    /**
+     * @notice  Only calls swapExactETHForTokens if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' which triggers the trade, whereas
+     *          `amountOutMin` is there incase the user wants to control
+     *          slippage. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the specified fee token, to the registry
+     */
     function ethToTokenStopLossPaySpecific(
         address user,
         uint feeAmount,
@@ -307,6 +350,10 @@ contract UniV2LimitsStops is Ownable {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
+    /**
+     * @notice  Only calls swapExactTokensForETH if the output is above
+     *          a certain amount
+     */
     function tokenToEthLimitOrder(
         address user,
         uint maxGasPrice,
@@ -321,6 +368,11 @@ contract UniV2LimitsStops is Ownable {
         uni.swapExactTokensForETH(inputAmount, amountOutMin, path, to, deadline);
     }
 
+    /**
+     * @notice  Only calls swapExactETHForTokens if the output is above
+     *          a certain amount. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the default fee token, to the registry
+     */
     function tokenToEthLimitOrderPayDefault(
         address user,
         uint feeAmount,
@@ -334,6 +386,11 @@ contract UniV2LimitsStops is Ownable {
         _tokenToEthPayDefault(user, feeAmount, uni, UniArgs(inputAmount, amountOutMin, path, deadline));
     }
 
+    /**
+     * @notice  Only calls swapExactETHForTokens if the output is above
+     *          a certain amount. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the specified fee token, to the registry
+     */
     function tokenToEthLimitOrderPaySpecific(
         address user,
         uint feeAmount,
@@ -355,6 +412,13 @@ contract UniV2LimitsStops is Ownable {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
+    /**
+     * @notice  Only calls swapExactTokensForETH if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' which triggers the trade, whereas
+     *          `amountOutMin` is there incase the user wants to control
+     *          slippage
+     */
     function tokenToEthStopLoss(
         address user,
         uint maxGasPrice,
@@ -371,6 +435,14 @@ contract UniV2LimitsStops is Ownable {
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
+    /**
+     * @notice  Only calls swapExactTokensForETH if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' which triggers the trade, whereas
+     *          `amountOutMin` is there incase the user wants to control
+     *          slippage. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the default fee token, to the registry
+     */
     function tokenToEthStopLossPayDefault(
         address user,
         uint feeAmount,
@@ -391,6 +463,14 @@ contract UniV2LimitsStops is Ownable {
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
+    /**
+     * @notice  Only calls swapExactTokensForETH if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' which triggers the trade, whereas
+     *          `amountOutMin` is there incase the user wants to control
+     *          slippage. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the specified fee token, to the registry
+     */
     function tokenToEthStopLossPaySpecific(
         address user,
         uint feeAmount,
@@ -490,6 +570,10 @@ contract UniV2LimitsStops is Ownable {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
+    /**
+     * @notice  Only calls swapExactTokensForTokens if the output is above
+     *          a certain amount
+     */
     function tokenToTokenLimitOrder(
         address user,
         uint maxGasPrice,
@@ -504,6 +588,11 @@ contract UniV2LimitsStops is Ownable {
         uni.swapExactTokensForTokens(inputAmount, amountOutMin, path, to, deadline);
     }
 
+    /**
+     * @notice  Only calls swapExactTokensForTokens if the output is above
+     *          a certain amount. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the default fee token, to the registry
+     */
     function tokenToTokenLimitOrderPayDefault(
         address user,
         uint feeAmount,
@@ -517,6 +606,11 @@ contract UniV2LimitsStops is Ownable {
         _tokenToTokenPayDefault(user, feeAmount, uni, UniArgs(inputAmount, amountOutMin, path, deadline));
     }
 
+    /**
+     * @notice  Only calls swapExactTokensForTokens if the output is above
+     *          a certain amount. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the specified fee token, to the registry
+     */
     function tokenToTokenLimitOrderPaySpecific(
         address user,
         uint feeAmount,
@@ -543,6 +637,13 @@ contract UniV2LimitsStops is Ownable {
     //                                                          //
     //////////////////////////////////////////////////////////////
 
+    /**
+     * @notice  Only calls swapExactTokensForTokens if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' which triggers the trade, whereas
+     *          `amountOutMin` is there incase the user wants to control
+     *          slippage
+     */
     function tokenToTokenStopLoss(
         address user,
         uint maxGasPrice,
@@ -559,6 +660,14 @@ contract UniV2LimitsStops is Ownable {
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
+    /**
+     * @notice  Only calls swapExactTokensForTokens if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' which triggers the trade, whereas
+     *          `amountOutMin` is there incase the user wants to control
+     *          slippage. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the default fee token, to the registry
+     */
     function tokenToTokenStopLossPayDefault(
         address user,
         uint feeAmount,
@@ -579,6 +688,14 @@ contract UniV2LimitsStops is Ownable {
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
+    /**
+     * @notice  Only calls swapExactTokensForTokens if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' which triggers the trade, whereas
+     *          `amountOutMin` is there incase the user wants to control
+     *          slippage. Takes part of the trade and uses it to
+     *          pay `feeAmount`, in the specified fee token, to the registry
+     */
     function tokenToTokenStopLossPaySpecific(
         address user,
         uint feeAmount,
