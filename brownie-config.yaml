@@ -1,8 +1,8 @@
 hypothesis:
-    max_examples: 200
+    max_examples: 100
 
 compiler:
   solc:
     version: 0.8.6
     remappings:
-      - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.0.0"
+      - "@openzeppelin=OpenZeppelin/openzeppelin-contracts@4.3.1"

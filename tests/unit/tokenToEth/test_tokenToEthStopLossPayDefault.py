@@ -10,7 +10,7 @@ def test_tokenToEthStopLossPayDefault_eth(auto, evmMaths, uni_router2, any, uniL
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     max_output = int(init_output * 0.9)
-    call_data = uniLS.tokenToEthStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, input_amount, 1, max_output, path, time.time() * 2)
+    call_data = uniLS.tokenToEthStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, 1, max_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, False)
 
     any.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -98,7 +98,7 @@ def test_tokenToEthStopLossPayDefault_AUTO(auto, evmMaths, uni_router2, any, uni
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     max_output = int(init_output * 0.9)
-    call_data = uniLS.tokenToEthStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, input_amount, 1, max_output, path, time.time() * 2)
+    call_data = uniLS.tokenToEthStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, 1, max_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, True)
 
     any.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -193,7 +193,7 @@ def test_tokenToEthStopLossPayDefault_AUTO_trade_AUTO(auto, evmMaths, uni_router
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     max_output = int(init_output * 0.9)
-    call_data = uniLS.tokenToEthStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, input_amount, 1, max_output, path, time.time() * 2)
+    call_data = uniLS.tokenToEthStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, 1, max_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, True)
 
     auto.AUTO.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -301,7 +301,7 @@ def test_tokenToEthStopLossPayDefault_random(auto, evmMaths, uni_router2, any, u
     input_token = auto.AUTO if input_token_is_AUTO else any
     path = [input_token, WETH_ADDR]
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
-    call_data = uniLS.tokenToEthStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, input_amount, min_output, max_output, path, time.time() * 2)
+    call_data = uniLS.tokenToEthStopLossPayDefault.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, min_output, max_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, pay_with_AUTO)
 
     input_token.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -422,4 +422,14 @@ def test_tokenToEthStopLossPayDefault_rev_sender(a, auto, uniLS):
     for addr in list(a) + auto.all:
         if addr.address != auto.uff.address:
             with reverts(REV_MSG_USERFEEFORW):
-                uniLS.tokenToEthStopLossPayDefault(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, E_18, 1, MAX_UINT, [], time.time() * 2, {'from': addr})
+                uniLS.tokenToEthStopLossPayDefault(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, E_18, 1, MAX_UINT, [], time.time() * 2, {'from': addr})
+
+
+@given(
+    max_gas_price=strategy('uint', min_value=1, max_value=MAX_GAS_PRICE),
+    gas_price=strategy('uint', min_value=1, max_value=MAX_GAS_PRICE)
+)
+def test_tokenToEthStopLossPayDefault_rev_gasPrice(a, auto, uniLS, max_gas_price, gas_price):
+    if gas_price > max_gas_price:
+        with reverts(REV_MSG_GASPRICE_HIGH):
+            uniLS.tokenToEthStopLossPayDefault(auto.CHARLIE, MIN_GAS, max_gas_price, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], time.time() * 2, {'from': auto.DEPLOYER, 'gasPrice': gas_price})

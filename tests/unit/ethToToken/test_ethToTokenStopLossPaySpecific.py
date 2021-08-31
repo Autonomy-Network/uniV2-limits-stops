@@ -10,7 +10,7 @@ def test_ethToTokenStopLossPaySpecific_eth(auto, evmMaths, uni_router2, any, uni
     input_amount = int(0.1 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     max_output = int(init_output * 0.9)
-    call_data = uniLS.ethToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, 1, max_output, path, time.time() * 2)
+    call_data = uniLS.ethToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, 1, max_output, path, time.time() * 2)
     msg_value = input_amount
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, True, True, False)
 
@@ -95,7 +95,7 @@ def test_ethToTokenStopLossPaySpecific_AUTO(auto, evmMaths, uni_router2, any, un
     input_amount = int(0.1 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     max_output = int(init_output * 0.9)
-    call_data = uniLS.ethToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, new_default_fee_info, 1, max_output, path, time.time() * 2)
+    call_data = uniLS.ethToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, new_default_fee_info, 1, max_output, path, time.time() * 2)
     msg_value = input_amount
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, msg_value, True, True, True)
 
@@ -191,7 +191,7 @@ def test_ethToTokenStopLossPaySpecific_random(auto, evmMaths, uni_router2, any, 
     path = [WETH_ADDR, ANY_ADDR]
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     msg_value = input_amount
-    call_data = uniLS.ethToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, default_fee_info, min_output, max_output, path, time.time() * 2)
+    call_data = uniLS.ethToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, min_output, max_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, True, True, pay_with_AUTO)
 
     assert auto.CHARLIE.balance() == INIT_ETH_BAL
@@ -288,4 +288,14 @@ def test_ethToTokenStopLossPaySpecific_rev_sender(a, auto, uniLS):
     for addr in list(a) + auto.all:
         if addr.address != auto.uff.address:
             with reverts(REV_MSG_USERFEEFORW):
-                uniLS.ethToTokenStopLossPaySpecific(auto.CHARLIE, MIN_GAS, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, 1, 1, [], time.time() * 2, {'from': addr})
+                uniLS.ethToTokenStopLossPaySpecific(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, 1, 1, [], time.time() * 2, {'from': addr})
+
+
+@given(
+    max_gas_price=strategy('uint', min_value=1, max_value=MAX_GAS_PRICE),
+    gas_price=strategy('uint', min_value=1, max_value=MAX_GAS_PRICE)
+)
+def test_ethToTokenStopLossPaySpecific_rev_gasPrice(a, auto, uniLS, max_gas_price, gas_price):
+    if gas_price > max_gas_price:
+        with reverts(REV_MSG_GASPRICE_HIGH):
+            uniLS.ethToTokenStopLossPaySpecific(auto.CHARLIE, MIN_GAS, max_gas_price, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, 1, 1, [], time.time() * 2, {'from': auto.DEPLOYER, 'gasPrice': gas_price})

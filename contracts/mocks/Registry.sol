@@ -1,4 +1,4 @@
-pragma solidity ^0.8;
+pragma solidity 0.8.6;
 
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -324,7 +324,6 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
     }
 
     function _execute(Request calldata r, uint expectedGas) private {
-        emit Test(1, 0);
         IOracle orac = _oracle;
         uint ethStartBal = address(this).balance;
         uint feeTotal;
@@ -334,7 +333,6 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
             feeTotal = expectedGas * orac.getGasPriceFast() * PAY_ETH_BPS / BASE_BPS;
         }
 
-        emit Test(2, 0);
         // Make the call that the user requested
         bool success;
         bytes memory returnData;
@@ -353,7 +351,6 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         } else {
             (success, returnData) = r.target.call{value: r.ethForCall}(r.callData);
         }
-        emit Test(3, 0);
         // Need this if statement because if the call succeeds, the tx will revert
         // with an EVM error because it can't decode 0x00. If a tx fails with no error
         // message, maybe that's a problem? But if it failed without a message then it's
@@ -361,7 +358,6 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         if (!success) {
             revert(abi.decode(returnData, (string)));
         }
-        emit Test(4, 0);
         
         // Store AUTO rewards
         // It's cheaper to store the cumulative rewards than it is to send
@@ -379,13 +375,11 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
         if (r.referer != _ADDR_0) {
             _referalCounts[r.referer] += 1;
         }
-        emit Test(5, 0);
 
         // If ETH was somehow siphoned from this contract during the request,
         // this will revert because of an `Integer overflow` underflow - a security feature
         uint ethReceivedDuringRequest = address(this).balance + r.ethForCall - ethStartBal;
         if (r.payWithAUTO) {
-            emit Test(222, _AUTO.balanceOf(r.user));
             // Send the executor their bounty
             require(_AUTO.transferFrom(r.user, msg.sender, feeTotal));
         } else {
@@ -401,7 +395,6 @@ contract Registry is IRegistry, Shared, ReentrancyGuard {
             }
         }
     }
-    event Test(uint a, uint b);
 
     //////////////////////////////////////////////////////////////
     //                                                          //

@@ -20,6 +20,7 @@ INIT_AUTO_PER_ETH = 2000
 INIT_AUTO_PER_ETH_WEI = INIT_AUTO_PER_ETH * E_18
 # 2 gwei
 INIT_GAS_PRICE_FAST = 2 * 10**9
+MAX_GAS_PRICE = 5 * 10**9
 
 
 # Miner
@@ -76,3 +77,4 @@ ERROR_FACTOR = 0.0000000001
 
 REV_MSG_USERFORW = "LimitsStops: not userForw"
 REV_MSG_USERFEEFORW = "LimitsStops: not userFeeForw"
+REV_MSG_GASPRICE_HIGH = "LimitsStops: gasPrice too high"

@@ -1,9 +1,10 @@
-pragma solidity ^0.8;
+pragma solidity 0.8.6;
 
 
-import "../interfaces/IUniswapV2Router02.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "../interfaces/IUniswapV2Router02.sol";
 
 
 // TODO: get returned data from calls, so if they revert, can pass on the reason
@@ -32,6 +33,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 
 contract UniV2LimitsStops is Ownable {
+
+    using SafeERC20 for IERC20;
 
     address payable public immutable registry;
     address public immutable userVeriForwarder;
@@ -64,6 +67,7 @@ contract UniV2LimitsStops is Ownable {
         address[] path;
         // Whether or not the fee token is AUTO, because that needs to
         // get sent to the user, since `transferFrom` is used from them directly
+        // in the Registry to charge the fee
         bool isAUTO;
     }
 
@@ -141,35 +145,38 @@ contract UniV2LimitsStops is Ownable {
     //////////////////////////////////////////////////////////////
 
     function ethToTokenLimitOrder(
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint amountOutMin,
         address[] calldata path,
         address to,
         uint deadline
-    ) external payable {
+    ) external payable gasPriceCheck(maxGasPrice) {
         uni.swapExactETHForTokens{value: msg.value}(amountOutMin, path, to, deadline);
     }
 
     function ethToTokenLimitOrderPayDefault(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint amountOutMin,
         address[] calldata path,
         uint deadline
-    ) external payable userFeeVerified {
+    ) external payable gasPriceCheck(maxGasPrice) userFeeVerified {
         _ethToTokenPayDefault(user, feeAmount, uni, UniArgs(0, amountOutMin, path, deadline));
     }
 
     function ethToTokenLimitOrderPaySpecific(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         FeeInfo memory feeInfo,
         uint amountOutMin,
         address[] calldata path,
         uint deadline
-    ) external payable userFeeVerified {
+    ) external payable gasPriceCheck(maxGasPrice) userFeeVerified {
         _ethToTokenPaySpecific(user, feeAmount, uni, feeInfo, UniArgs(0, amountOutMin, path, deadline));
     }
 
@@ -181,13 +188,14 @@ contract UniV2LimitsStops is Ownable {
     //////////////////////////////////////////////////////////////
 
     function ethToTokenStopLoss(
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
         address to,
         uint deadline
-    ) external payable {
+    ) external payable gasPriceCheck(maxGasPrice) {
         uint[] memory amounts = uni.swapExactETHForTokens{value: msg.value}(amountOutMin, path, to, deadline);
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
@@ -195,12 +203,13 @@ contract UniV2LimitsStops is Ownable {
     function ethToTokenStopLossPayDefault(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
         uint deadline
-    ) external payable userFeeVerified {
+    ) external payable gasPriceCheck(maxGasPrice) userFeeVerified {
         uint[] memory amounts = _ethToTokenPayDefault(user, feeAmount, uni, UniArgs(0, amountOutMin, path, deadline));
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
@@ -208,13 +217,14 @@ contract UniV2LimitsStops is Ownable {
     function ethToTokenStopLossPaySpecific(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         FeeInfo memory feeInfo,
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
         uint deadline
-    ) external payable userFeeVerified {
+    ) external payable gasPriceCheck(maxGasPrice) userFeeVerified {
         uint[] memory amounts = _ethToTokenPaySpecific(
             user,
             feeAmount,
@@ -299,13 +309,14 @@ contract UniV2LimitsStops is Ownable {
 
     function tokenToEthLimitOrder(
         address user,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint inputAmount,
         uint amountOutMin,
         address[] calldata path,
         address to,
         uint deadline
-    ) external userVerified {
+    ) external gasPriceCheck(maxGasPrice) userVerified {
         transferApproveUnapproved(uni, path[0], inputAmount, user);
         uni.swapExactTokensForETH(inputAmount, amountOutMin, path, to, deadline);
     }
@@ -313,25 +324,27 @@ contract UniV2LimitsStops is Ownable {
     function tokenToEthLimitOrderPayDefault(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint inputAmount,
         uint amountOutMin,
         address[] calldata path,
         uint deadline
-    ) external userFeeVerified {
+    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
         _tokenToEthPayDefault(user, feeAmount, uni, UniArgs(inputAmount, amountOutMin, path, deadline));
     }
 
     function tokenToEthLimitOrderPaySpecific(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         FeeInfo memory feeInfo,
         uint inputAmount,
         uint amountOutMin,
         address[] calldata path,
         uint deadline
-    ) external userFeeVerified {
+    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
         _tokenToEthPaySpecific(user, feeAmount, uni, feeInfo, UniArgs(inputAmount, amountOutMin, path, deadline));
     }
 
@@ -344,6 +357,7 @@ contract UniV2LimitsStops is Ownable {
 
     function tokenToEthStopLoss(
         address user,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint inputAmount,
         uint amountOutMin,
@@ -351,7 +365,7 @@ contract UniV2LimitsStops is Ownable {
         address[] calldata path,
         address to,
         uint deadline
-    ) external userVerified {
+    ) external gasPriceCheck(maxGasPrice) userVerified {
         transferApproveUnapproved(uni, path[0], inputAmount, user);
         uint[] memory amounts = uni.swapExactTokensForETH(inputAmount, amountOutMin, path, to, deadline);
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
@@ -360,13 +374,14 @@ contract UniV2LimitsStops is Ownable {
     function tokenToEthStopLossPayDefault(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint inputAmount,
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
         uint deadline
-    ) external userFeeVerified {
+    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
         uint[] memory amounts = _tokenToEthPayDefault(
             user,
             feeAmount,
@@ -379,6 +394,7 @@ contract UniV2LimitsStops is Ownable {
     function tokenToEthStopLossPaySpecific(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         FeeInfo memory feeInfo,
         uint inputAmount,
@@ -386,7 +402,7 @@ contract UniV2LimitsStops is Ownable {
         uint amountOutMax,
         address[] calldata path,
         uint deadline
-    ) external userFeeVerified {
+    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
         uint[] memory amounts = _tokenToEthPaySpecific(
             user,
             feeAmount,
@@ -476,13 +492,14 @@ contract UniV2LimitsStops is Ownable {
 
     function tokenToTokenLimitOrder(
         address user,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint inputAmount,
         uint amountOutMin,
         address[] calldata path,
         address to,
         uint deadline
-    ) external userVerified {
+    ) external gasPriceCheck(maxGasPrice) userVerified {
         transferApproveUnapproved(uni, path[0], inputAmount, user);
         uni.swapExactTokensForTokens(inputAmount, amountOutMin, path, to, deadline);
     }
@@ -490,25 +507,27 @@ contract UniV2LimitsStops is Ownable {
     function tokenToTokenLimitOrderPayDefault(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint inputAmount,
         uint amountOutMin,
         address[] calldata path,
         uint deadline
-    ) external userFeeVerified {
+    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
         _tokenToTokenPayDefault(user, feeAmount, uni, UniArgs(inputAmount, amountOutMin, path, deadline));
     }
 
     function tokenToTokenLimitOrderPaySpecific(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         FeeInfo memory feeInfo,
         uint inputAmount,
         uint amountOutMin,
         address[] calldata path,
         uint deadline
-    ) external userFeeVerified {
+    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
         _tokenToTokenPaySpecific(
             user,
             feeAmount,
@@ -526,6 +545,7 @@ contract UniV2LimitsStops is Ownable {
 
     function tokenToTokenStopLoss(
         address user,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint inputAmount,
         uint amountOutMin,
@@ -533,7 +553,7 @@ contract UniV2LimitsStops is Ownable {
         address[] calldata path,
         address to,
         uint deadline
-    ) external userVerified {
+    ) external gasPriceCheck(maxGasPrice) userVerified {
         transferApproveUnapproved(uni, path[0], inputAmount, user);
         uint[] memory amounts = uni.swapExactTokensForTokens(inputAmount, amountOutMin, path, to, deadline);
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
@@ -542,13 +562,14 @@ contract UniV2LimitsStops is Ownable {
     function tokenToTokenStopLossPayDefault(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint inputAmount,
         uint amountOutMin,
         uint amountOutMax,
         address[] calldata path,
         uint deadline
-    ) external userFeeVerified {
+    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
         uint[] memory amounts = _tokenToTokenPayDefault(
             user,
             feeAmount,
@@ -561,6 +582,7 @@ contract UniV2LimitsStops is Ownable {
     function tokenToTokenStopLossPaySpecific(
         address user,
         uint feeAmount,
+        uint maxGasPrice,
         IUniswapV2Router02 uni,
         FeeInfo memory feeInfo,
         uint inputAmount,
@@ -568,7 +590,7 @@ contract UniV2LimitsStops is Ownable {
         uint amountOutMax,
         address[] calldata path,
         uint deadline
-    ) external userFeeVerified {
+    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
         uint[] memory amounts = _tokenToTokenPaySpecific(
             user,
             feeAmount,
@@ -597,7 +619,7 @@ contract UniV2LimitsStops is Ownable {
 
     function transferApproveUnapproved(IUniswapV2Router02 uni, address tokenAddr, uint amount, address user) private {
         IERC20 token = approveUnapproved(uni, tokenAddr, amount);
-        token.transferFrom(user, address(this), amount);
+        token.safeTransferFrom(user, address(this), amount);
     }
 
     function setDefaultFeeInfo(FeeInfo calldata newDefaultFee) external onlyOwner {
@@ -615,6 +637,11 @@ contract UniV2LimitsStops is Ownable {
 
     modifier userFeeVerified() {
         require(msg.sender == userFeeVeriForwarder, "LimitsStops: not userFeeForw");
+        _;
+    }
+
+    modifier gasPriceCheck(uint maxGasPrice) {
+        require(tx.gasprice <= maxGasPrice, "LimitsStops: gasPrice too high");
         _;
     }
 
