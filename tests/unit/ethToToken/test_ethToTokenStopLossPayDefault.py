@@ -91,7 +91,8 @@ def test_ethToTokenStopLossPayDefault_eth(auto, evmMaths, uni_router2, any, uniL
 
 def test_ethToTokenStopLossPayDefault_AUTO(auto, evmMaths, uni_router2, any, uniLS):
     default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-    uniLS.setDefaultFeeInfo(default_fee_info)
+    args = setDefaultFeeInfoPrep(auto, uni_router2, uniLS, default_fee_info, DELAY+60, 60)
+    auto.tl.executeTransaction(*args, auto.FR_DEPLOYER)
 
     path = [WETH_ADDR, ANY_ADDR]
     input_amount = int(0.1 * E_18)
@@ -189,7 +190,8 @@ def test_ethToTokenStopLossPayDefault_AUTO(auto, evmMaths, uni_router2, any, uni
 def test_ethToTokenStopLossPayDefault_random(auto, evmMaths, uni_router2, any, uniLS, input_amount, min_output, max_output, whale_amount, expected_gas, pay_with_AUTO):
     if pay_with_AUTO:
         default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-        uniLS.setDefaultFeeInfo(default_fee_info)
+        args = setDefaultFeeInfoPrep(auto, uni_router2, uniLS, default_fee_info, DELAY+60, 60)
+        auto.tl.executeTransaction(*args, auto.FR_DEPLOYER)
     else:
         default_fee_info = DEFAULT_FEE_INFO
     path = [WETH_ADDR, ANY_ADDR]

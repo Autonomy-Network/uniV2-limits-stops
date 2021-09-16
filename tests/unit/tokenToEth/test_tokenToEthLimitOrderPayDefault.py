@@ -92,7 +92,8 @@ def test_tokenToEthLimitOrderPayDefault_eth(auto, evmMaths, uni_router2, any, un
 
 def test_tokenToEthLimitOrderPayDefault_AUTO(auto, evmMaths, uni_router2, any, uniLS):
     default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-    uniLS.setDefaultFeeInfo(default_fee_info)
+    args = setDefaultFeeInfoPrep(auto, uni_router2, uniLS, default_fee_info, DELAY+60, 60)
+    auto.tl.executeTransaction(*args, auto.FR_DEPLOYER)
 
     path = [ANY_ADDR, WETH_ADDR]
     input_amount = int(10 * E_18)
@@ -187,7 +188,8 @@ def test_tokenToEthLimitOrderPayDefault_AUTO(auto, evmMaths, uni_router2, any, u
 
 def test_tokenToEthLimitOrderPayDefault_AUTO_trade_AUTO(auto, evmMaths, uni_router2, any, uniLS):
     default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-    uniLS.setDefaultFeeInfo(default_fee_info)
+    args = setDefaultFeeInfoPrep(auto, uni_router2, uniLS, default_fee_info, DELAY+60, 60)
+    auto.tl.executeTransaction(*args, auto.FR_DEPLOYER)
 
     path = [auto.AUTO, WETH_ADDR]
     input_amount = int(10 * E_18)
@@ -294,7 +296,8 @@ def test_tokenToEthLimitOrderPayDefault_AUTO_trade_AUTO(auto, evmMaths, uni_rout
 def test_tokenToEthLimitOrderPayDefault_random(auto, evmMaths, uni_router2, any, uniLS, input_token_is_AUTO, input_amount, whale_amount, expected_gas, pay_with_AUTO):
     if pay_with_AUTO:
         default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-        uniLS.setDefaultFeeInfo(default_fee_info)
+        args = setDefaultFeeInfoPrep(auto, uni_router2, uniLS, default_fee_info, DELAY+60, 60)
+        auto.tl.executeTransaction(*args, auto.FR_DEPLOYER)
     else:
         default_fee_info = DEFAULT_FEE_INFO
     input_token = auto.AUTO if input_token_is_AUTO else any

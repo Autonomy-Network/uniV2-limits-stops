@@ -12,7 +12,7 @@ def isolation(fn_isolation):
 
 # Deploy the contracts for repeated tests without having to redeploy each time
 
-def deploy_initial_AUTO_contracts(AUTO, PriceOracle, Oracle, StakeManager, Registry, Forwarder, Miner):
+def deploy_initial_AUTO_contracts(AUTO, PriceOracle, Oracle, StakeManager, Registry, Forwarder, Miner, Timelock):
     class Context:
         pass
 
@@ -57,7 +57,16 @@ def deploy_initial_AUTO_contracts(AUTO, PriceOracle, Oracle, StakeManager, Regis
         INIT_EXECUTOR_REWARD,
         INIT_REFERAL_REWARD
     )
-    auto.all = [auto.AUTO, auto.po, auto.o, auto.sm, auto.uf, auto.ff, auto.uff, auto.r, auto.m]
+
+    # Create timelock for OP owner
+    auto.tl = auto.DEPLOYER.deploy(Timelock, auto.DEPLOYER, 2*DAY)
+    auto.po.transferOwnership(auto.tl, auto.FR_DEPLOYER)
+    auto.o.transferOwnership(auto.tl, auto.FR_DEPLOYER)
+    auto.uf.transferOwnership(auto.tl, auto.FR_DEPLOYER)
+    auto.ff.transferOwnership(auto.tl, auto.FR_DEPLOYER)
+    auto.uff.transferOwnership(auto.tl, auto.FR_DEPLOYER)
+
+    auto.all = [auto.AUTO, auto.po, auto.o, auto.sm, auto.uf, auto.ff, auto.uff, auto.r, auto.m, auto.tl]
     
     auto.AUTO.approve(auto.r, MAX_UINT, auto.FR_CHARLIE)
 
@@ -65,8 +74,8 @@ def deploy_initial_AUTO_contracts(AUTO, PriceOracle, Oracle, StakeManager, Regis
 
 
 @pytest.fixture(scope="module")
-def auto(AUTO, PriceOracle, Oracle, StakeManager, Registry, Forwarder, Miner):
-    return deploy_initial_AUTO_contracts(AUTO, PriceOracle, Oracle, StakeManager, Registry, Forwarder, Miner)
+def auto(AUTO, PriceOracle, Oracle, StakeManager, Registry, Forwarder, Miner, Timelock):
+    return deploy_initial_AUTO_contracts(AUTO, PriceOracle, Oracle, StakeManager, Registry, Forwarder, Miner, Timelock)
 
 
 @pytest.fixture(scope="module")
@@ -109,6 +118,7 @@ def any(auto, UniV2LimitsStops):
 @pytest.fixture(scope="module")
 def uniLS(auto, any, dai, uni_router2, UniV2LimitsStops):
     uniLS =  auto.DEPLOYER.deploy(UniV2LimitsStops, auto.r, auto.uf, auto.uff, WETH_ADDR, DEFAULT_FEE_INFO)
+    uniLS.transferOwnership(auto.tl, auto.FR_DEPLOYER)
 
     # The top holder from https://etherscan.io/token/0xf99d58e463A2E07e5692127302C20A191861b4D6#balances
     # which is actually SushiSwap, so there should always be some tokens here

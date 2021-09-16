@@ -8,6 +8,7 @@ INIT_ETH_BAL = 100 * E_18
 MAX_UINT = 115792089237316195423570985008687907853269984665640564039457584007913129639935
 MIN_RAND_INPUT_ETH = 2*E_18
 MIN_RAND_INPUT_TOKEN = 2*E_18
+DAY = 60 * 60 * 24
 
 
 # AUTO
@@ -78,3 +79,9 @@ ERROR_FACTOR = 0.0000000001
 REV_MSG_USERFORW = "LimitsStops: not userForw"
 REV_MSG_USERFEEFORW = "LimitsStops: not userFeeForw"
 REV_MSG_GASPRICE_HIGH = "LimitsStops: gasPrice too high"
+
+
+# Timelock
+DELAY = 2*DAY
+
+REV_MSG_LOCK = "Timelock::executeTransaction: Transaction hasn't surpassed time lock."

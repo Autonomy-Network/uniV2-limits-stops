@@ -109,7 +109,8 @@ def test_tokenToTokenStopLossPayDefault_eth(auto, evmMaths, uni_router2, any, da
 
 def test_tokenToTokenStopLossPayDefault_AUTO(auto, evmMaths, uni_router2, any, dai, uniLS):
     default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-    uniLS.setDefaultFeeInfo(default_fee_info)
+    args = setDefaultFeeInfoPrep(auto, uni_router2, uniLS, default_fee_info, DELAY+60, 60)
+    auto.tl.executeTransaction(*args, auto.FR_DEPLOYER)
 
     path = [ANY_ADDR, WETH_ADDR, dai]
     input_amount = int(10 * E_18)
@@ -220,7 +221,8 @@ def test_tokenToTokenStopLossPayDefault_AUTO(auto, evmMaths, uni_router2, any, d
 
 def test_tokenToTokenStopLossPayDefault_AUTO_trade_from_AUTO(auto, evmMaths, uni_router2, any, dai, uniLS):
     default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-    uniLS.setDefaultFeeInfo(default_fee_info)
+    args = setDefaultFeeInfoPrep(auto, uni_router2, uniLS, default_fee_info, DELAY+60, 60)
+    auto.tl.executeTransaction(*args, auto.FR_DEPLOYER)
 
     path = [auto.AUTO, WETH_ADDR, dai]
     input_amount = int(10 * E_18)
@@ -335,7 +337,8 @@ def test_tokenToTokenStopLossPayDefault_AUTO_trade_from_AUTO(auto, evmMaths, uni
 
 def test_tokenToTokenStopLossPayDefault_AUTO_trade_to_AUTO(auto, evmMaths, uni_router2, any, dai, uniLS):
     default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-    uniLS.setDefaultFeeInfo(default_fee_info)
+    args = setDefaultFeeInfoPrep(auto, uni_router2, uniLS, default_fee_info, DELAY+60, 60)
+    auto.tl.executeTransaction(*args, auto.FR_DEPLOYER)
 
     path = [any, WETH_ADDR, auto.AUTO]
     input_amount = int(10 * E_18)
@@ -466,7 +469,8 @@ def test_tokenToTokenStopLossPayDefault_random(auto, evmMaths, uni_router2, any,
         output_token = id_to_token[output_token_id]
         if pay_with_AUTO:
             default_fee_info = (UNIV2_ROUTER2_ADDR, (ADDR_0, auto.AUTO), True)
-            uniLS.setDefaultFeeInfo(default_fee_info)
+            args = setDefaultFeeInfoPrep(auto, uni_router2, uniLS, default_fee_info, DELAY+60, 60)
+            auto.tl.executeTransaction(*args, auto.FR_DEPLOYER)
         else:
             default_fee_info = DEFAULT_FEE_INFO
         path = [input_token, WETH_ADDR, output_token]
