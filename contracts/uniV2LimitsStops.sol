@@ -124,7 +124,7 @@ contract UniV2LimitsStops is Ownable {
         // Pay the execution fee
         uint tradeInput = msg.value;
         if (feeInfo.isAUTO) {
-            tradeInput -= feeInfo.uni.swapETHForExactTokens{value: msg.value}(
+            tradeInput -= feeInfo.uni.swapAVAXForExactTokens{value: msg.value}(
                 feeAmount,
                 feeInfo.path,
                 user,
@@ -136,7 +136,7 @@ contract UniV2LimitsStops is Ownable {
         }
 
         // *1, *2
-        return uni.swapExactETHForTokens{value: tradeInput}(
+        return uni.swapExactAVAXForTokens{value: tradeInput}(
             uniArgs.amountOutMin * tradeInput / msg.value,
             uniArgs.path,
             user,
@@ -151,7 +151,7 @@ contract UniV2LimitsStops is Ownable {
     //////////////////////////////////////////////////////////////
 
     /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
+     * @notice  Only calls swapExactAVAXForTokens if the output is above
      *          a certain amount
      */
     function ethToTokenLimitOrder(
@@ -162,11 +162,11 @@ contract UniV2LimitsStops is Ownable {
         address to,
         uint deadline
     ) external payable gasPriceCheck(maxGasPrice) {
-        uni.swapExactETHForTokens{value: msg.value}(amountOutMin, path, to, deadline);
+        uni.swapExactAVAXForTokens{value: msg.value}(amountOutMin, path, to, deadline);
     }
 
     /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
+     * @notice  Only calls swapExactAVAXForTokens if the output is above
      *          a certain amount. Takes part of the trade and uses it to
      *          pay `feeAmount`, in the default fee token, to the registry
      */
@@ -183,7 +183,7 @@ contract UniV2LimitsStops is Ownable {
     }
 
     /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
+     * @notice  Only calls swapExactAVAXForTokens if the output is above
      *          a certain amount. Takes part of the trade and uses it to
      *          pay `feeAmount`, in the specified fee token, to the registry
      */
@@ -208,7 +208,7 @@ contract UniV2LimitsStops is Ownable {
     //////////////////////////////////////////////////////////////
 
     /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
+     * @notice  Only calls swapExactAVAXForTokens if the output is above
      *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
      *          is the 'stop price' which triggers the trade, whereas
      *          `amountOutMin` is there incase the user wants to control
@@ -223,12 +223,12 @@ contract UniV2LimitsStops is Ownable {
         address to,
         uint deadline
     ) external payable gasPriceCheck(maxGasPrice) {
-        uint[] memory amounts = uni.swapExactETHForTokens{value: msg.value}(amountOutMin, path, to, deadline);
+        uint[] memory amounts = uni.swapExactAVAXForTokens{value: msg.value}(amountOutMin, path, to, deadline);
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
     /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
+     * @notice  Only calls swapExactAVAXForTokens if the output is above
      *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
      *          is the 'stop price' which triggers the trade, whereas
      *          `amountOutMin` is there incase the user wants to control
@@ -250,7 +250,7 @@ contract UniV2LimitsStops is Ownable {
     }
 
     /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
+     * @notice  Only calls swapExactAVAXForTokens if the output is above
      *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
      *          is the 'stop price' which triggers the trade, whereas
      *          `amountOutMin` is there incase the user wants to control
@@ -333,7 +333,7 @@ contract UniV2LimitsStops is Ownable {
         }
 
         // *1, *2
-        return uni.swapExactTokensForETH(
+        return uni.swapExactTokensForAVAX(
             tradeInput,
             uniArgs.amountOutMin * tradeInput / uniArgs.inputAmount,
             uniArgs.path,
@@ -351,7 +351,7 @@ contract UniV2LimitsStops is Ownable {
     //////////////////////////////////////////////////////////////
 
     /**
-     * @notice  Only calls swapExactTokensForETH if the output is above
+     * @notice  Only calls swapExactTokensForAVAX if the output is above
      *          a certain amount
      */
     function tokenToEthLimitOrder(
@@ -365,11 +365,11 @@ contract UniV2LimitsStops is Ownable {
         uint deadline
     ) external gasPriceCheck(maxGasPrice) userVerified {
         transferApproveUnapproved(uni, path[0], inputAmount, user);
-        uni.swapExactTokensForETH(inputAmount, amountOutMin, path, to, deadline);
+        uni.swapExactTokensForAVAX(inputAmount, amountOutMin, path, to, deadline);
     }
 
     /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
+     * @notice  Only calls swapExactAVAXForTokens if the output is above
      *          a certain amount. Takes part of the trade and uses it to
      *          pay `feeAmount`, in the default fee token, to the registry
      */
@@ -387,7 +387,7 @@ contract UniV2LimitsStops is Ownable {
     }
 
     /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
+     * @notice  Only calls swapExactAVAXForTokens if the output is above
      *          a certain amount. Takes part of the trade and uses it to
      *          pay `feeAmount`, in the specified fee token, to the registry
      */
@@ -413,7 +413,7 @@ contract UniV2LimitsStops is Ownable {
     //////////////////////////////////////////////////////////////
 
     /**
-     * @notice  Only calls swapExactTokensForETH if the output is above
+     * @notice  Only calls swapExactTokensForAVAX if the output is above
      *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
      *          is the 'stop price' which triggers the trade, whereas
      *          `amountOutMin` is there incase the user wants to control
@@ -431,12 +431,12 @@ contract UniV2LimitsStops is Ownable {
         uint deadline
     ) external gasPriceCheck(maxGasPrice) userVerified {
         transferApproveUnapproved(uni, path[0], inputAmount, user);
-        uint[] memory amounts = uni.swapExactTokensForETH(inputAmount, amountOutMin, path, to, deadline);
+        uint[] memory amounts = uni.swapExactTokensForAVAX(inputAmount, amountOutMin, path, to, deadline);
         require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
     /**
-     * @notice  Only calls swapExactTokensForETH if the output is above
+     * @notice  Only calls swapExactTokensForAVAX if the output is above
      *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
      *          is the 'stop price' which triggers the trade, whereas
      *          `amountOutMin` is there incase the user wants to control
@@ -464,7 +464,7 @@ contract UniV2LimitsStops is Ownable {
     }
 
     /**
-     * @notice  Only calls swapExactTokensForETH if the output is above
+     * @notice  Only calls swapExactTokensForAVAX if the output is above
      *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
      *          is the 'stop price' which triggers the trade, whereas
      *          `amountOutMin` is there incase the user wants to control
@@ -551,7 +551,7 @@ contract UniV2LimitsStops is Ownable {
         } else {
             transferApproveUnapproved(uni, uniArgs.path[0], uniArgs.inputAmount, user);
             approveUnapproved(feeInfo.uni, uniArgs.path[0], uniArgs.inputAmount);
-            tradeInput -= feeInfo.uni.swapTokensForExactETH(feeAmount, uniArgs.inputAmount, feeInfo.path, registry, uniArgs.deadline)[0];
+            tradeInput -= feeInfo.uni.swapTokensForExactAVAX(feeAmount, uniArgs.inputAmount, feeInfo.path, registry, uniArgs.deadline)[0];
         }
 
         // *1, *2
@@ -762,6 +762,6 @@ contract UniV2LimitsStops is Ownable {
         _;
     }
 
-    // Needed to receive excess ETH when calling swapETHForExactTokens
+    // Needed to receive excess ETH when calling swapAVAXForExactTokens
     receive() external payable {}
 }
