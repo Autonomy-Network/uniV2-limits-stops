@@ -81,6 +81,7 @@ contract UniV2LimitsStops is Ownable {
     struct UniArgs{
         uint inputAmount;
         uint amountOutMin;
+        uint amountOutMax;
         address[] path;
         uint deadline;
     }
@@ -94,24 +95,43 @@ contract UniV2LimitsStops is Ownable {
     //////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////
 
+    /**
+     * @notice  Only calls swapExactETHForTokens if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' when used as a stop loss, and
+     *          `amountOutMin` is the 'limit price' when used as a limit
+     *          order. When using this as a classic limit order, `amountOutMax`
+     *          would be sent to the max uint value. When using this
+     *          as a classic stop loss, `amountOutMin` would be set to 0.
+     *          The min/max can also be used to limit downside during flash
+     *          crashes, e.g. `amountOutMin` could be set to 10% lower then
+     *          `amountOutMax` for a stop loss, if desired.
+     */
+    function ethToTokenRange(
+        uint maxGasPrice,
+        IUniswapV2Router02 uni,
+        uint amountOutMin,
+        uint amountOutMax,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable gasPriceCheck(maxGasPrice) {
+        uint[] memory amounts = uni.swapExactETHForTokens{value: msg.value}(amountOutMin, path, to, deadline);
+        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
+    }
+
     function _ethToTokenPayDefault(
         address user,
         uint feeAmount,
         IUniswapV2Router02 uni,
         UniArgs memory uniArgs
-    ) private returns (uint[] memory) {
+    ) private {
         FeeInfo memory feeInfo = _defaultFeeInfo;
         if (feeInfo.isAUTO) {
             feeInfo.path[0] = WETH;
         }
 
-        return _ethToTokenPaySpecific(
-            user,
-            feeAmount,
-            uni,
-            feeInfo,
-            uniArgs
-        );
+        _ethToTokenPaySpecific(user, feeAmount, uni, feeInfo, uniArgs);
     }
 
     function _ethToTokenPaySpecific(
@@ -120,7 +140,7 @@ contract UniV2LimitsStops is Ownable {
         IUniswapV2Router02 uni,
         FeeInfo memory feeInfo,
         UniArgs memory uniArgs
-    ) private returns (uint[] memory) {
+    ) private {
         // Pay the execution fee
         uint tradeInput = msg.value;
         if (feeInfo.isAUTO) {
@@ -136,106 +156,30 @@ contract UniV2LimitsStops is Ownable {
         }
 
         // *1, *2
-        return uni.swapExactETHForTokens{value: tradeInput}(
+        uint[] memory amounts = uni.swapExactETHForTokens{value: tradeInput}(
             uniArgs.amountOutMin * tradeInput / msg.value,
             uniArgs.path,
             user,
             uniArgs.deadline
         );
-    }
-
-    //////////////////////////////////////////////////////////////
-    //                                                          //
-    //                  ETH to token limit orders               //
-    //                                                          //
-    //////////////////////////////////////////////////////////////
-
-    /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
-     *          a certain amount
-     */
-    function ethToTokenLimitOrder(
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external payable gasPriceCheck(maxGasPrice) {
-        uni.swapExactETHForTokens{value: msg.value}(amountOutMin, path, to, deadline);
-    }
-
-    /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
-     *          a certain amount. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the default fee token, to the registry
-     */
-    function ethToTokenLimitOrderPayDefault(
-        address user,
-        uint feeAmount,
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        uint amountOutMin,
-        address[] calldata path,
-        uint deadline
-    ) external payable gasPriceCheck(maxGasPrice) userFeeVerified {
-        _ethToTokenPayDefault(user, feeAmount, uni, UniArgs(0, amountOutMin, path, deadline));
-    }
-
-    /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
-     *          a certain amount. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the specified fee token, to the registry
-     */
-    function ethToTokenLimitOrderPaySpecific(
-        address user,
-        uint feeAmount,
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        FeeInfo memory feeInfo,
-        uint amountOutMin,
-        address[] calldata path,
-        uint deadline
-    ) external payable gasPriceCheck(maxGasPrice) userFeeVerified {
-        _ethToTokenPaySpecific(user, feeAmount, uni, feeInfo, UniArgs(0, amountOutMin, path, deadline));
-    }
-
-
-    //////////////////////////////////////////////////////////////
-    //                                                          //
-    //                  ETH to token stop losses                //
-    //                                                          //
-    //////////////////////////////////////////////////////////////
-
-    /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
-     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
-     *          is the 'stop price' which triggers the trade, whereas
-     *          `amountOutMin` is there incase the user wants to control
-     *          slippage
-     */
-    function ethToTokenStopLoss(
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        uint amountOutMin,
-        uint amountOutMax,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external payable gasPriceCheck(maxGasPrice) {
-        uint[] memory amounts = uni.swapExactETHForTokens{value: msg.value}(amountOutMin, path, to, deadline);
-        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
+        require(amounts[amounts.length-1] <= uniArgs.amountOutMax * tradeInput / msg.value, "LimitsStops: price too high");
     }
 
     /**
      * @notice  Only calls swapExactETHForTokens if the output is above
      *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
-     *          is the 'stop price' which triggers the trade, whereas
-     *          `amountOutMin` is there incase the user wants to control
-     *          slippage. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the default fee token, to the registry
+     *          is the 'stop price' when used as a stop loss, and
+     *          `amountOutMin` is the 'limit price' when used as a limit
+     *          order. When using this as a classic limit order, `amountOutMax`
+     *          would be sent to the max uint value. When using this
+     *          as a classic stop loss, `amountOutMin` would be set to 0.
+     *          The min/max can also be used to limit downside during flash
+     *          crashes, e.g. `amountOutMin` could be set to 10% lower then
+     *          `amountOutMax` for a stop loss, if desired. Additionally, 
+     *          takes part of the trade and uses it to pay `feeAmount`,
+     *          in the default fee token, to the registry
      */
-    function ethToTokenStopLossPayDefault(
+    function ethToTokenRangePayDefault(
         address user,
         uint feeAmount,
         uint maxGasPrice,
@@ -245,19 +189,30 @@ contract UniV2LimitsStops is Ownable {
         address[] calldata path,
         uint deadline
     ) external payable gasPriceCheck(maxGasPrice) userFeeVerified {
-        uint[] memory amounts = _ethToTokenPayDefault(user, feeAmount, uni, UniArgs(0, amountOutMin, path, deadline));
-        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
+        _ethToTokenPayDefault(
+            user,
+            feeAmount,
+            uni,
+            UniArgs(0, amountOutMin, amountOutMax, path, deadline)
+        );
     }
 
     /**
      * @notice  Only calls swapExactETHForTokens if the output is above
      *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
-     *          is the 'stop price' which triggers the trade, whereas
-     *          `amountOutMin` is there incase the user wants to control
-     *          slippage. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the specified fee token, to the registry
+     *          is the 'stop price' when used as a stop loss, and
+     *          `amountOutMin` is the 'limit price' when used as a limit
+     *          order. When using this as a classic limit order, `amountOutMax`
+     *          would be sent to the max uint value. When using this
+     *          as a classic stop loss, `amountOutMin` would be set to 0.
+     *          The min/max can also be used to limit downside during flash
+     *          crashes, e.g. `amountOutMin` could be set to 10% lower then
+     *          `amountOutMax` for a stop loss, if desired. Additionally, 
+     *          takes part of the trade and uses it to pay `feeAmount`,
+     *          in the specified fee token, to the registry.
+     *          WARNING: only use this if you want to do things non-standard
      */
-    function ethToTokenStopLossPaySpecific(
+    function ethToTokenRangePaySpecific(
         address user,
         uint feeAmount,
         uint maxGasPrice,
@@ -268,14 +223,13 @@ contract UniV2LimitsStops is Ownable {
         address[] calldata path,
         uint deadline
     ) external payable gasPriceCheck(maxGasPrice) userFeeVerified {
-        uint[] memory amounts = _ethToTokenPaySpecific(
+        _ethToTokenPaySpecific(
             user,
             feeAmount,
             uni,
             feeInfo,
-            UniArgs(0, amountOutMin, path, deadline)
+            UniArgs(0, amountOutMin, amountOutMax, path, deadline)
         );
-        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
 
@@ -287,12 +241,40 @@ contract UniV2LimitsStops is Ownable {
     //////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////
 
+    /**
+     * @notice  Only calls swapExactTokensForETH if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' when used as a stop loss, and
+     *          `amountOutMin` is the 'limit price' when used as a limit
+     *          order. When using this as a classic limit order, `amountOutMax`
+     *          would be sent to the max uint value. When using this
+     *          as a classic stop loss, `amountOutMin` would be set to 0.
+     *          The min/max can also be used to limit downside during flash
+     *          crashes, e.g. `amountOutMin` could be set to 10% lower then
+     *          `amountOutMax` for a stop loss, if desired.
+     */
+    function tokenToEthRange(
+        address user,
+        uint maxGasPrice,
+        IUniswapV2Router02 uni,
+        uint inputAmount,
+        uint amountOutMin,
+        uint amountOutMax,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external gasPriceCheck(maxGasPrice) userVerified {
+        transferApproveUnapproved(uni, path[0], inputAmount, user);
+        uint[] memory amounts = uni.swapExactTokensForETH(inputAmount, amountOutMin, path, to, deadline);
+        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
+    }
+
     function _tokenToEthPayDefault(
         address user,
         uint feeAmount,
         IUniswapV2Router02 uni,
         UniArgs memory uniArgs
-    ) private returns (uint[] memory) {
+    ) private {
         FeeInfo memory feeInfo = _defaultFeeInfo;
         // The fee path only needs to be modified when not paying in ETH (since
         // the output of the trade is ETH and that can be used) and when the input
@@ -305,7 +287,7 @@ contract UniV2LimitsStops is Ownable {
             feeInfo.path = newFeePath;
         }
 
-        return _tokenToEthPaySpecific(user, feeAmount, uni, feeInfo, uniArgs);
+        _tokenToEthPaySpecific(user, feeAmount, uni, feeInfo, uniArgs);
     }
 
     function _tokenToEthPaySpecific(
@@ -314,7 +296,7 @@ contract UniV2LimitsStops is Ownable {
         IUniswapV2Router02 uni,
         FeeInfo memory feeInfo,
         UniArgs memory uniArgs
-    ) private returns (uint[] memory) {
+    ) private {
         // Pay the execution fee
         uint tradeInput = uniArgs.inputAmount;
         if (feeInfo.isAUTO) {
@@ -333,7 +315,7 @@ contract UniV2LimitsStops is Ownable {
         }
 
         // *1, *2
-        return uni.swapExactTokensForETH(
+        uint[] memory amounts = uni.swapExactTokensForETH(
             tradeInput,
             uniArgs.amountOutMin * tradeInput / uniArgs.inputAmount,
             uniArgs.path,
@@ -342,108 +324,24 @@ contract UniV2LimitsStops is Ownable {
             feeInfo.isAUTO ? user : registry,
             uniArgs.deadline
         );
-    }
-
-    //////////////////////////////////////////////////////////////
-    //                                                          //
-    //                 Token to ETH limit orders                //
-    //                                                          //
-    //////////////////////////////////////////////////////////////
-
-    /**
-     * @notice  Only calls swapExactTokensForETH if the output is above
-     *          a certain amount
-     */
-    function tokenToEthLimitOrder(
-        address user,
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        uint inputAmount,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external gasPriceCheck(maxGasPrice) userVerified {
-        transferApproveUnapproved(uni, path[0], inputAmount, user);
-        uni.swapExactTokensForETH(inputAmount, amountOutMin, path, to, deadline);
-    }
-
-    /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
-     *          a certain amount. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the default fee token, to the registry
-     */
-    function tokenToEthLimitOrderPayDefault(
-        address user,
-        uint feeAmount,
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        uint inputAmount,
-        uint amountOutMin,
-        address[] calldata path,
-        uint deadline
-    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
-        _tokenToEthPayDefault(user, feeAmount, uni, UniArgs(inputAmount, amountOutMin, path, deadline));
-    }
-
-    /**
-     * @notice  Only calls swapExactETHForTokens if the output is above
-     *          a certain amount. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the specified fee token, to the registry
-     */
-    function tokenToEthLimitOrderPaySpecific(
-        address user,
-        uint feeAmount,
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        FeeInfo memory feeInfo,
-        uint inputAmount,
-        uint amountOutMin,
-        address[] calldata path,
-        uint deadline
-    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
-        _tokenToEthPaySpecific(user, feeAmount, uni, feeInfo, UniArgs(inputAmount, amountOutMin, path, deadline));
-    }
-
-
-    //////////////////////////////////////////////////////////////
-    //                                                          //
-    //                  Token to ETH stop losses                //
-    //                                                          //
-    //////////////////////////////////////////////////////////////
-
-    /**
-     * @notice  Only calls swapExactTokensForETH if the output is above
-     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
-     *          is the 'stop price' which triggers the trade, whereas
-     *          `amountOutMin` is there incase the user wants to control
-     *          slippage
-     */
-    function tokenToEthStopLoss(
-        address user,
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        uint inputAmount,
-        uint amountOutMin,
-        uint amountOutMax,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external gasPriceCheck(maxGasPrice) userVerified {
-        transferApproveUnapproved(uni, path[0], inputAmount, user);
-        uint[] memory amounts = uni.swapExactTokensForETH(inputAmount, amountOutMin, path, to, deadline);
-        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
+        require(amounts[amounts.length-1] <= uniArgs.amountOutMax * tradeInput / uniArgs.inputAmount, "LimitsStops: price too high");
     }
 
     /**
      * @notice  Only calls swapExactTokensForETH if the output is above
      *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
-     *          is the 'stop price' which triggers the trade, whereas
-     *          `amountOutMin` is there incase the user wants to control
-     *          slippage. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the default fee token, to the registry
+     *          is the 'stop price' when used as a stop loss, and
+     *          `amountOutMin` is the 'limit price' when used as a limit
+     *          order. When using this as a classic limit order, `amountOutMax`
+     *          would be sent to the max uint value. When using this
+     *          as a classic stop loss, `amountOutMin` would be set to 0.
+     *          The min/max can also be used to limit downside during flash
+     *          crashes, e.g. `amountOutMin` could be set to 10% lower then
+     *          `amountOutMax` for a stop loss, if desired. Additionally, 
+     *          takes part of the trade and uses it to pay `feeAmount`,
+     *          in the default fee token, to the registry
      */
-    function tokenToEthStopLossPayDefault(
+    function tokenToEthRangePayDefault(
         address user,
         uint feeAmount,
         uint maxGasPrice,
@@ -454,24 +352,30 @@ contract UniV2LimitsStops is Ownable {
         address[] calldata path,
         uint deadline
     ) external gasPriceCheck(maxGasPrice) userFeeVerified {
-        uint[] memory amounts = _tokenToEthPayDefault(
+        _tokenToEthPayDefault(
             user,
             feeAmount,
             uni,
-            UniArgs(inputAmount, amountOutMin, path, deadline)
+            UniArgs(inputAmount, amountOutMin, amountOutMax, path, deadline)
         );
-        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
     /**
      * @notice  Only calls swapExactTokensForETH if the output is above
      *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
-     *          is the 'stop price' which triggers the trade, whereas
-     *          `amountOutMin` is there incase the user wants to control
-     *          slippage. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the specified fee token, to the registry
+     *          is the 'stop price' when used as a stop loss, and
+     *          `amountOutMin` is the 'limit price' when used as a limit
+     *          order. When using this as a classic limit order, `amountOutMax`
+     *          would be sent to the max uint value. When using this
+     *          as a classic stop loss, `amountOutMin` would be set to 0.
+     *          The min/max can also be used to limit downside during flash
+     *          crashes, e.g. `amountOutMin` could be set to 10% lower then
+     *          `amountOutMax` for a stop loss, if desired. Additionally, 
+     *          takes part of the trade and uses it to pay `feeAmount`,
+     *          in the specified fee token, to the registry.
+     *          WARNING: only use this if you want to do things non-standard
      */
-    function tokenToEthStopLossPaySpecific(
+    function tokenToEthRangePaySpecific(
         address user,
         uint feeAmount,
         uint maxGasPrice,
@@ -483,14 +387,13 @@ contract UniV2LimitsStops is Ownable {
         address[] calldata path,
         uint deadline
     ) external gasPriceCheck(maxGasPrice) userFeeVerified {
-        uint[] memory amounts = _tokenToEthPaySpecific(
+        _tokenToEthPaySpecific(
             user,
             feeAmount,
             uni,
             feeInfo,
-            UniArgs(inputAmount, amountOutMin, path, deadline)
+            UniArgs(inputAmount, amountOutMin, amountOutMax, path, deadline)
         );
-        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
     //////////////////////////////////////////////////////////////////
@@ -501,12 +404,40 @@ contract UniV2LimitsStops is Ownable {
     //////////////////////////////////////////////////////////////////
     //////////////////////////////////////////////////////////////////
 
+    /**
+     * @notice  Only calls swapExactTokensForTokens if the output is above
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' when used as a stop loss, and
+     *          `amountOutMin` is the 'limit price' when used as a limit
+     *          order. When using this as a classic limit order, `amountOutMax`
+     *          would be sent to the max uint value. When using this
+     *          as a classic stop loss, `amountOutMin` would be set to 0.
+     *          The min/max can also be used to limit downside during flash
+     *          crashes, e.g. `amountOutMin` could be set to 10% lower then
+     *          `amountOutMax` for a stop loss, if desired.
+     */
+    function tokenToTokenRange(
+        address user,
+        uint maxGasPrice,
+        IUniswapV2Router02 uni,
+        uint inputAmount,
+        uint amountOutMin,
+        uint amountOutMax,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external gasPriceCheck(maxGasPrice) userVerified {
+        transferApproveUnapproved(uni, path[0], inputAmount, user);
+        uint[] memory amounts = uni.swapExactTokensForTokens(inputAmount, amountOutMin, path, to, deadline);
+        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
+    }
+
     function _tokenToTokenPayDefault(
         address user,
         uint feeAmount,
         IUniswapV2Router02 uni,
         UniArgs memory uniArgs
-    ) private returns (uint[] memory) {
+    ) private {
         FeeInfo memory feeInfo = _defaultFeeInfo;
         // The fee path only needs to be modified when the src/dest tokens aren't
         // AUTO (if paying in AUTO), and when paying in ETH
@@ -520,7 +451,7 @@ contract UniV2LimitsStops is Ownable {
             feeInfo.path[0] = uniArgs.path[0];
         }
 
-        return _tokenToTokenPaySpecific(user, feeAmount, uni, feeInfo, uniArgs);
+        _tokenToTokenPaySpecific(user, feeAmount, uni, feeInfo, uniArgs);
     }
 
     function _tokenToTokenPaySpecific(
@@ -529,7 +460,7 @@ contract UniV2LimitsStops is Ownable {
         IUniswapV2Router02 uni,
         FeeInfo memory feeInfo,
         UniArgs memory uniArgs
-    ) private returns (uint[] memory) {
+    ) private {
         // Pay the execution fee
         uint tradeInput = uniArgs.inputAmount;
         if (feeInfo.isAUTO) {
@@ -555,63 +486,65 @@ contract UniV2LimitsStops is Ownable {
         }
 
         // *1, *2
-        return uni.swapExactTokensForTokens(
+        uint[] memory amounts = uni.swapExactTokensForTokens(
             tradeInput,
             uniArgs.amountOutMin * tradeInput / uniArgs.inputAmount,
             uniArgs.path,
             user,
             uniArgs.deadline
         );
-    }
-
-    //////////////////////////////////////////////////////////////
-    //                                                          //
-    //                 Token to token limit orders              //
-    //                                                          //
-    //////////////////////////////////////////////////////////////
-
-    /**
-     * @notice  Only calls swapExactTokensForTokens if the output is above
-     *          a certain amount
-     */
-    function tokenToTokenLimitOrder(
-        address user,
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        uint inputAmount,
-        uint amountOutMin,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external gasPriceCheck(maxGasPrice) userVerified {
-        transferApproveUnapproved(uni, path[0], inputAmount, user);
-        uni.swapExactTokensForTokens(inputAmount, amountOutMin, path, to, deadline);
+        require(amounts[amounts.length-1] <= uniArgs.amountOutMax * tradeInput / uniArgs.inputAmount, "LimitsStops: price too high");
     }
 
     /**
      * @notice  Only calls swapExactTokensForTokens if the output is above
-     *          a certain amount. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the default fee token, to the registry
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' when used as a stop loss, and
+     *          `amountOutMin` is the 'limit price' when used as a limit
+     *          order. When using this as a classic limit order, `amountOutMax`
+     *          would be sent to the max uint value. When using this
+     *          as a classic stop loss, `amountOutMin` would be set to 0.
+     *          The min/max can also be used to limit downside during flash
+     *          crashes, e.g. `amountOutMin` could be set to 10% lower then
+     *          `amountOutMax` for a stop loss, if desired. Additionally, 
+     *          takes part of the trade and uses it to pay `feeAmount`,
+     *          in the default fee token, to the registry
      */
-    function tokenToTokenLimitOrderPayDefault(
+    function tokenToTokenRangePayDefault(
         address user,
         uint feeAmount,
         uint maxGasPrice,
         IUniswapV2Router02 uni,
         uint inputAmount,
         uint amountOutMin,
+        uint amountOutMax,
         address[] calldata path,
         uint deadline
     ) external gasPriceCheck(maxGasPrice) userFeeVerified {
-        _tokenToTokenPayDefault(user, feeAmount, uni, UniArgs(inputAmount, amountOutMin, path, deadline));
+        _tokenToTokenPayDefault(
+            user,
+            feeAmount,
+            uni,
+            UniArgs(inputAmount, amountOutMin, amountOutMax, path, deadline)
+        );
     }
 
     /**
      * @notice  Only calls swapExactTokensForTokens if the output is above
-     *          a certain amount. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the specified fee token, to the registry
+     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
+     *          is the 'stop price' when used as a stop loss, and
+     *          `amountOutMin` is the 'limit price' when used as a limit
+     *          order. When using this as a classic limit order, `amountOutMax`
+     *          would be sent to the max uint value. When using this
+     *          as a classic stop loss, `amountOutMin` would be set to 0.
+     *          The min/max can also be used to limit downside during flash
+     *          crashes, e.g. `amountOutMin` could be set to 10% lower then
+     *          `amountOutMax` for a stop loss, if desired. Additionally, 
+     *          takes part of the trade and uses it to pay `feeAmount`,
+     *          in the specified fee token, to the registry.
+     *          WARNING: only use this if you want to do things non-standard
      */
-    function tokenToTokenLimitOrderPaySpecific(
+    function tokenToTokenRangePaySpecific(
         address user,
         uint feeAmount,
         uint maxGasPrice,
@@ -619,6 +552,7 @@ contract UniV2LimitsStops is Ownable {
         FeeInfo memory feeInfo,
         uint inputAmount,
         uint amountOutMin,
+        uint amountOutMax,
         address[] calldata path,
         uint deadline
     ) external gasPriceCheck(maxGasPrice) userFeeVerified {
@@ -627,95 +561,8 @@ contract UniV2LimitsStops is Ownable {
             feeAmount,
             uni,
             feeInfo,
-            UniArgs(inputAmount, amountOutMin, path, deadline)
+            UniArgs(inputAmount, amountOutMin, amountOutMax, path, deadline)
         );
-    }
-
-    //////////////////////////////////////////////////////////////
-    //                                                          //
-    //                  Token to token stop losses              //
-    //                                                          //
-    //////////////////////////////////////////////////////////////
-
-    /**
-     * @notice  Only calls swapExactTokensForTokens if the output is above
-     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
-     *          is the 'stop price' which triggers the trade, whereas
-     *          `amountOutMin` is there incase the user wants to control
-     *          slippage
-     */
-    function tokenToTokenStopLoss(
-        address user,
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        uint inputAmount,
-        uint amountOutMin,
-        uint amountOutMax,
-        address[] calldata path,
-        address to,
-        uint deadline
-    ) external gasPriceCheck(maxGasPrice) userVerified {
-        transferApproveUnapproved(uni, path[0], inputAmount, user);
-        uint[] memory amounts = uni.swapExactTokensForTokens(inputAmount, amountOutMin, path, to, deadline);
-        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
-    }
-
-    /**
-     * @notice  Only calls swapExactTokensForTokens if the output is above
-     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
-     *          is the 'stop price' which triggers the trade, whereas
-     *          `amountOutMin` is there incase the user wants to control
-     *          slippage. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the default fee token, to the registry
-     */
-    function tokenToTokenStopLossPayDefault(
-        address user,
-        uint feeAmount,
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        uint inputAmount,
-        uint amountOutMin,
-        uint amountOutMax,
-        address[] calldata path,
-        uint deadline
-    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
-        uint[] memory amounts = _tokenToTokenPayDefault(
-            user,
-            feeAmount,
-            uni,
-            UniArgs(inputAmount, amountOutMin, path, deadline)
-        );
-        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
-    }
-
-    /**
-     * @notice  Only calls swapExactTokensForTokens if the output is above
-     *          `amountOutMin` and below `amountOutMax`. `amountOutMax`
-     *          is the 'stop price' which triggers the trade, whereas
-     *          `amountOutMin` is there incase the user wants to control
-     *          slippage. Takes part of the trade and uses it to
-     *          pay `feeAmount`, in the specified fee token, to the registry
-     */
-    function tokenToTokenStopLossPaySpecific(
-        address user,
-        uint feeAmount,
-        uint maxGasPrice,
-        IUniswapV2Router02 uni,
-        FeeInfo memory feeInfo,
-        uint inputAmount,
-        uint amountOutMin,
-        uint amountOutMax,
-        address[] calldata path,
-        uint deadline
-    ) external gasPriceCheck(maxGasPrice) userFeeVerified {
-        uint[] memory amounts = _tokenToTokenPaySpecific(
-            user,
-            feeAmount,
-            uni,
-            feeInfo,
-            UniArgs(inputAmount, amountOutMin, path, deadline)
-        );
-        require(amounts[amounts.length-1] <= amountOutMax, "LimitsStops: price too high");
     }
 
 
