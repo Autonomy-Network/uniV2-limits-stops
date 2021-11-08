@@ -9,7 +9,7 @@ def test_ethToTokenLimitOrder_swapExactTokensForETH_swapExactTokensForETH_execut
     input_amount = int(0.1 * E_18)
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(cur_output * 1.1)
-    call_data = uniLS.ethToTokenLimitOrder.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, limit_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenRange.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, limit_output, MAX_UINT, path, auto.CHARLIE, time.time() * 2)
     max_fee = int(0.01 * E_18)
     msg_value = input_amount + max_fee
     any_start_bal = any.balanceOf(auto.CHARLIE)
@@ -65,7 +65,7 @@ def test_ethToTokenStopLoss_swapExactETHForTokens_swapExactETHForTokens(auto, un
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     min_output = int(cur_output * 0.8)
     max_output = int(cur_output * 0.9)
-    call_data = uniLS.ethToTokenStopLoss.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenRange.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
     max_fee = int(0.01 * E_18)
     msg_value = input_amount + max_fee
     any_start_bal = any.balanceOf(auto.CHARLIE)

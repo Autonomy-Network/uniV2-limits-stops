@@ -12,7 +12,7 @@ def test_tokenToTokenLimitOrder(auto, uni_router2, any, dai, uniLS, input_amount
     path = [ANY_ADDR, WETH_ADDR, DAI_ADDR]
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(cur_output * 1.1)
-    call_data = uniLS.tokenToTokenLimitOrder.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, limit_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.tokenToTokenRange.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, limit_output, MAX_UINT, path, auto.CHARLIE, time.time() * 2)
     msg_value = int(0.01 * E_18)
     req = (auto.CHARLIE.address, uniLS.address, ADDR_0, call_data, msg_value, 0, True, False, False)
 
@@ -44,7 +44,7 @@ def test_tokenToTokenLimitOrder_rev_input_approve(auto, uni_router2, any, dai, u
     path = [ANY_ADDR, WETH_ADDR, DAI_ADDR]
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(cur_output * 1.1)
-    call_data = uniLS.tokenToTokenLimitOrder.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, limit_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.tokenToTokenRange.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, limit_output, MAX_UINT, path, auto.CHARLIE, time.time() * 2)
     msg_value = int(0.01 * E_18)
     req = (auto.CHARLIE.address, uniLS.address, ADDR_0, call_data, msg_value, 0, True, False, False)
 
@@ -67,7 +67,7 @@ def test_tokenToTokenLimitOrder_rev_sender(a, auto, uniLS):
     for addr in list(a) + auto.all:
         if addr.address != auto.uf.address:
             with reverts(REV_MSG_USERFORW):
-                uniLS.tokenToTokenLimitOrder(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, 1, 1, [], auto.CHARLIE, time.time() * 2, {'from': addr})
+                uniLS.tokenToTokenRange(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, 1, 1, [], auto.CHARLIE, time.time() * 2, {'from': addr})
 
 
 @given(
@@ -77,4 +77,4 @@ def test_tokenToTokenLimitOrder_rev_sender(a, auto, uniLS):
 def test_tokenToTokenLimitOrder_rev_gasPrice(a, auto, uniLS, max_gas_price, gas_price):
     if gas_price > max_gas_price:
         with reverts(REV_MSG_GASPRICE_HIGH):
-            uniLS.tokenToTokenLimitOrder(auto.CHARLIE, max_gas_price, UNIV2_ROUTER2_ADDR, 1, 1, [], auto.CHARLIE, time.time() * 2, {'from': auto.DEPLOYER, 'gasPrice': gas_price})
+            uniLS.tokenToTokenRange(auto.CHARLIE, max_gas_price, UNIV2_ROUTER2_ADDR, 1, 1, [], auto.CHARLIE, time.time() * 2, {'from': auto.DEPLOYER, 'gasPrice': gas_price})

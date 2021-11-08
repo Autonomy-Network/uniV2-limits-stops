@@ -13,7 +13,7 @@ import time
 )
 def test_tokenToEthStopLoss(auto, uni_router2, any, uniLS, input_amount, min_output, max_output, whale_amount):
     path = [ANY_ADDR, WETH_ADDR]
-    call_data = uniLS.tokenToEthStopLoss.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.tokenToEthRange.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
     msg_value = int(0.01 * E_18)
     eth_start_bal = auto.CHARLIE.balance()
     req = (auto.CHARLIE.address, uniLS.address, ADDR_0, call_data, msg_value, 0, True, False, False)
@@ -65,7 +65,7 @@ def test_tokenToEthStopLoss_rev_input_approve(auto, uni_router2, any, uniLS):
     path = [ANY_ADDR, WETH_ADDR]
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(cur_output * 1.1)
-    call_data = uniLS.tokenToEthStopLoss.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, limit_output, MAX_UINT, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.tokenToEthRange.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, limit_output, MAX_UINT, path, auto.CHARLIE, time.time() * 2)
     msg_value = int(0.01 * E_18)
     req = (auto.CHARLIE.address, uniLS.address, ADDR_0, call_data, msg_value, 0, True, False, False)
 
@@ -87,7 +87,7 @@ def test_tokenToEthStopLoss_rev_sender(a, auto, uniLS):
     for addr in list(a) + auto.all:
         if addr.address != auto.uf.address:
             with reverts(REV_MSG_USERFORW):
-                uniLS.tokenToEthStopLoss(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': addr})
+                uniLS.tokenToEthRange(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': addr})
 
 
 @given(
@@ -97,4 +97,4 @@ def test_tokenToEthStopLoss_rev_sender(a, auto, uniLS):
 def test_tokenToEthStopLoss_rev_gasPrice(a, auto, uniLS, max_gas_price, gas_price):
     if gas_price > max_gas_price:
         with reverts(REV_MSG_GASPRICE_HIGH):
-            uniLS.tokenToEthStopLoss(auto.CHARLIE, max_gas_price, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': auto.DEPLOYER, 'gasPrice': gas_price})
+            uniLS.tokenToEthRange(auto.CHARLIE, max_gas_price, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': auto.DEPLOYER, 'gasPrice': gas_price})
