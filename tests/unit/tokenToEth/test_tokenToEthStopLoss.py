@@ -41,15 +41,12 @@ def test_tokenToEthStopLoss(auto, uni_router2, any, uniLS, input_amount, min_out
 
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     if cur_output < min_output:
-        print('a')
         with reverts(REV_MSG_UNI_OUTPUT):
             auto.r.executeHashedReq(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
     elif cur_output > max_output:
-        print('b')
         with reverts(REV_MSG_PRICE_HIGH):
             auto.r.executeHashedReq(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
     else:
-        print('c')
         # Execute successfully :D
         # expected_gas = auto.r.executeHashedReq.call(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
         auto.r.executeHashedReq(0, req, EXPECTED_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})

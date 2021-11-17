@@ -257,7 +257,6 @@ def test_ethToTokenStopLossPayDefault_random(auto, evmMaths, uni_router2, any, u
         fee_input = evmMaths.mul3div1(expected_gas, INIT_GAS_PRICE_FAST, PAY_ETH_BPS, BASE_BPS)
 
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
-    print('derp', input_amount, max_output, (min_output*(input_amount-fee_input)/input_amount))
     # Not enough ETH to pay the fee
     if msg_value < fee_input:
         with reverts():

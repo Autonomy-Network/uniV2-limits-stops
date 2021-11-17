@@ -377,7 +377,6 @@ def test_tokenToEthStopLossPaySpecific_random(auto, evmMaths, uni_router2, any, 
         trade_output = uni_router2.getAmountsOut(input_amount, path)[-1] - fee_output
 
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
-    print(cur_output, min_output, (min_output*(input_amount-fee_input)/input_amount))
     # Not enough ETH to pay the fee
     if input_amount < fee_input:
         with reverts():

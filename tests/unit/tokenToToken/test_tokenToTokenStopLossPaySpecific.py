@@ -11,7 +11,7 @@ def test_tokenToTokenStopLossPaySpecific_eth(auto, evmMaths, uni_router2, any, d
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     max_output = int(init_output * 0.9)
-    call_data = uniLS.tokenToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, 1, max_output, path, time.time() * 2)
+    call_data = uniLS.tokenToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, 1, max_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, False)
 
     any.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -114,7 +114,7 @@ def test_tokenToTokenStopLossPaySpecific_AUTO(auto, evmMaths, uni_router2, any, 
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     max_output = int(init_output * 0.9)
-    call_data = uniLS.tokenToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, 1, max_output, path, time.time() * 2)
+    call_data = uniLS.tokenToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, 1, max_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, True)
 
     any.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -223,7 +223,7 @@ def test_tokenToTokenStopLossPaySpecific_AUTO_trade_from_AUTO(auto, evmMaths, un
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     max_output = int(init_output * 0.9)
-    call_data = uniLS.tokenToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, 1, max_output, path, time.time() * 2)
+    call_data = uniLS.tokenToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, 1, max_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, True)
 
     auto.AUTO.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -336,7 +336,7 @@ def test_tokenToTokenStopLossPaySpecific_AUTO_trade_to_AUTO(auto, evmMaths, uni_
     input_amount = int(10 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     max_output = int(init_output * 0.9)
-    call_data = uniLS.tokenToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, 1, max_output, path, time.time() * 2)
+    call_data = uniLS.tokenToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, 1, max_output, path, time.time() * 2)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, True)
 
     any.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -467,7 +467,7 @@ def test_tokenToTokenStopLossPaySpecific_random(auto, evmMaths, uni_router2, any
             default_fee_info = (UNIV2_ROUTER2_ADDR, [auto.AUTO], True)
         path = [input_token, WETH_ADDR, output_token]
         init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
-        call_data = uniLS.tokenToTokenStopLossPaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, min_output, max_output, path, time.time() * 2)
+        call_data = uniLS.tokenToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, input_amount, min_output, max_output, path, time.time() * 2)
         req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, 0, 0, True, True, pay_with_AUTO)
 
         input_token.transfer(auto.CHARLIE, input_amount, auto.FR_WHALE)
@@ -569,21 +569,17 @@ def test_tokenToTokenStopLossPaySpecific_random(auto, evmMaths, uni_router2, any
         cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
         # Not enough ETH to pay the fee
         if input_amount < fee_input:
-            print('a')
             with reverts():
                 tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
         elif input_amount >= fee_input + MIN_TRADE_AMOUNT and cur_output < int(min_output*(input_amount-fee_input)/input_amount):
-            print('b')
             with reverts(REV_MSG_UNI_OUTPUT):
                 tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
         # In the case of ETH to token where the token is less valuable, it shouldn't be an issue to
         # trade small amounts, just just to have a consistent testing method
         elif input_amount >= fee_input + MIN_TRADE_AMOUNT and cur_output > max_output:
-            print('c')
             with reverts(REV_MSG_PRICE_HIGH):
                 tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
         elif input_amount >= fee_input + MIN_TRADE_AMOUNT and cur_output <= max_output:
-            print('d')
             assert uni_router2.getAmountsOut(input_amount, path)[-1] <= max_output
 
             tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
@@ -617,7 +613,7 @@ def test_tokenToTokenStopLossPaySpecific_rev_sender(a, auto, uniLS):
     for addr in list(a) + auto.all:
         if addr.address != auto.uff.address:
             with reverts(REV_MSG_USERFEEFORW):
-                uniLS.tokenToTokenStopLossPaySpecific(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, E_18, 1, 1, [], time.time() * 2, {'from': addr})
+                uniLS.tokenToTokenRangePaySpecific(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, E_18, 1, 1, [], time.time() * 2, {'from': addr})
 
 
 @given(
@@ -627,4 +623,4 @@ def test_tokenToTokenStopLossPaySpecific_rev_sender(a, auto, uniLS):
 def test_tokenToTokenStopLossPaySpecific_rev_gasPrice(a, auto, uniLS, max_gas_price, gas_price):
     if gas_price > max_gas_price:
         with reverts(REV_MSG_GASPRICE_HIGH):
-            uniLS.tokenToTokenStopLossPaySpecific(auto.CHARLIE, MIN_GAS, max_gas_price, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, 1, 1, MAX_UINT, [], time.time() * 2, {'from': auto.DEPLOYER, 'gasPrice': gas_price})
+            uniLS.tokenToTokenRangePaySpecific(auto.CHARLIE, MIN_GAS, max_gas_price, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, 1, 1, MAX_UINT, [], time.time() * 2, {'from': auto.DEPLOYER, 'gasPrice': gas_price})

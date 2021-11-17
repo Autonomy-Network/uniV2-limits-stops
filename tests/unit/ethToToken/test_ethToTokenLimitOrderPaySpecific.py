@@ -10,7 +10,7 @@ def test_ethToTokenLimitOrderPaySpecific_eth(auto, evmMaths, uni_router2, any, u
     input_amount = int(0.1 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(init_output * 1.1)
-    call_data = uniLS.ethToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, limit_output, MAX_UINT, path, time.time() * 2)
+    call_data = uniLS.ethToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, DEFAULT_FEE_INFO, limit_output, int(MAX_UINT/input_amount), path, time.time() * 2)
     msg_value = input_amount
     any_start_bal = any.balanceOf(auto.CHARLIE)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, True, True, False)
@@ -96,7 +96,7 @@ def test_ethToTokenLimitOrderPaySpecific_AUTO(auto, evmMaths, uni_router2, any, 
     input_amount = int(0.1 * E_18)
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(init_output * 1.1)
-    call_data = uniLS.ethToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, new_default_fee_info, limit_output, MAX_UINT, path, time.time() * 2)
+    call_data = uniLS.ethToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, new_default_fee_info, limit_output, int(MAX_UINT/input_amount), path, time.time() * 2)
     msg_value = input_amount
     any_start_bal = any.balanceOf(auto.CHARLIE)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, msg_value, True, True, True)
@@ -192,7 +192,7 @@ def test_ethToTokenLimitOrderPaySpecific_random(auto, evmMaths, uni_router2, any
     init_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(init_output * 1.1)
     msg_value = input_amount
-    call_data = uniLS.ethToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, limit_output, MAX_UINT, path, time.time() * 2)
+    call_data = uniLS.ethToTokenRangePaySpecific.encode_input(auto.CHARLIE, MIN_GAS, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, default_fee_info, limit_output, int(MAX_UINT/input_amount), path, time.time() * 2)
     any_start_bal = any.balanceOf(auto.CHARLIE)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, True, True, pay_with_AUTO)
 

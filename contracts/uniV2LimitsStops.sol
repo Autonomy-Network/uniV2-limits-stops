@@ -162,6 +162,7 @@ contract UniV2LimitsStops is Ownable {
             user,
             uniArgs.deadline
         );
+
         require(amounts[amounts.length-1] <= uniArgs.amountOutMax * tradeInput / msg.value, "LimitsStops: price too high");
     }
 
