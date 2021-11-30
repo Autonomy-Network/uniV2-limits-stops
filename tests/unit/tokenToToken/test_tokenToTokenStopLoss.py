@@ -13,7 +13,7 @@ import time
 )
 def test_tokenToTokenStopLoss(auto, uni_router2, any, dai, uniLS, input_amount, min_output, max_output, whale_amount):
     path = [ANY_ADDR, WETH_ADDR, dai]
-    call_data = uniLS.tokenToTokenStopLoss.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.tokenToTokenRange.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
     msg_value = int(0.01 * E_18)
     eth_start_bal = auto.CHARLIE.balance()
     req = (auto.CHARLIE.address, uniLS.address, ADDR_0, call_data, msg_value, 0, True, False, False)
@@ -64,7 +64,7 @@ def test_tokenToTokenStopLoss_rev_input_approve(auto, uni_router2, any, uniLS):
     path = [ANY_ADDR, WETH_ADDR]
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(cur_output * 1.1)
-    call_data = uniLS.tokenToTokenStopLoss.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, limit_output, MAX_UINT, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.tokenToTokenRange.encode_input(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, input_amount, limit_output, MAX_UINT, path, auto.CHARLIE, time.time() * 2)
     msg_value = int(0.01 * E_18)
     req = (auto.CHARLIE.address, uniLS.address, ADDR_0, call_data, msg_value, 0, True, False, False)
 
@@ -74,7 +74,6 @@ def test_tokenToTokenStopLoss_rev_input_approve(auto, uni_router2, any, uniLS):
     auto.r.newReq(uniLS, ADDR_0, call_data, 0, True, False, False, {'value': msg_value, 'gasPrice': INIT_GAS_PRICE_FAST, 'from': auto.CHARLIE})
 
     # Swap ANY to the Uniswap contract to make the price of ANY much cheaper
-    print(any.balanceOf(auto.WHALE))
     whale_amount = 10**22
     uni_router2.swapExactTokensForTokens(whale_amount, 1, path, auto.WHALE, time.time()*2, {'from': auto.WHALE})
 
@@ -87,7 +86,7 @@ def test_tokenToTokenStopLoss_rev_sender(a, auto, uniLS):
     for addr in list(a) + auto.all:
         if addr.address != auto.uf.address:
             with reverts(REV_MSG_USERFORW):
-                uniLS.tokenToTokenStopLoss(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': addr})
+                uniLS.tokenToTokenRange(auto.CHARLIE, MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': addr})
 
 
 @given(
@@ -97,4 +96,4 @@ def test_tokenToTokenStopLoss_rev_sender(a, auto, uniLS):
 def test_tokenToTokenStopLoss_rev_gasPrice(a, auto, uniLS, max_gas_price, gas_price):
     if gas_price > max_gas_price:
         with reverts(REV_MSG_GASPRICE_HIGH):
-            uniLS.tokenToTokenStopLoss(auto.CHARLIE, max_gas_price, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': auto.DEPLOYER, 'gasPrice': gas_price})
+            uniLS.tokenToTokenRange(auto.CHARLIE, max_gas_price, UNIV2_ROUTER2_ADDR, 1, 1, MAX_UINT, [], auto.CHARLIE, time.time() * 2, {'from': auto.DEPLOYER, 'gasPrice': gas_price})

@@ -13,7 +13,7 @@ import time
 )
 def test_ethToTokenStopLoss_random(auto, uni_router2, any, uniLS, input_amount, min_output, max_output, whale_amount):
     path = [WETH_ADDR, ANY_ADDR]
-    call_data = uniLS.ethToTokenStopLoss.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenRange.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
     max_fee = int(0.01 * E_18)
     msg_value = input_amount + max_fee
     any_start_bal = any.balanceOf(auto.CHARLIE)
@@ -41,15 +41,12 @@ def test_ethToTokenStopLoss_random(auto, uni_router2, any, uniLS, input_amount, 
 
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     if cur_output < min_output:
-        print('a')
         with reverts(REV_MSG_UNI_OUTPUT):
             auto.r.executeHashedReq(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
     elif cur_output > max_output:
-        print('b')
         with reverts(REV_MSG_PRICE_HIGH):
             auto.r.executeHashedReq(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
     else:
-        print('c')
         # Execute successfully :D
         expected_gas = auto.r.executeHashedReq.call(0, req, MIN_GAS, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
         tx = auto.r.executeHashedReq(0, req, expected_gas, {'from': auto.EXEC, 'gasPrice': INIT_GAS_PRICE_FAST})
@@ -66,7 +63,7 @@ def test_ethToTokenStopLoss_rev_msgValue(auto, uni_router2, any, uniLS):
     input_amount = int(0.1 * E_18)
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     max_output = int(cur_output * 1.1)
-    call_data = uniLS.ethToTokenStopLoss.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, 1, max_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenRange.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, 1, max_output, path, auto.CHARLIE, time.time() * 2)
     max_fee = int(0.01 * E_18)
     msg_value = max_fee
     any_start_bal = any.balanceOf(auto.CHARLIE)
@@ -104,7 +101,7 @@ def test_ethToTokenStopLoss_rev_no_price_change(auto, uni_router2, any, uniLS):
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     min_output = int(cur_output * 0.8)
     max_output = int(cur_output * 0.9)
-    call_data = uniLS.ethToTokenStopLoss.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenRange.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
     msg_value = input_amount + int(0.01 * E_18)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, False, False, False)
 
@@ -128,7 +125,7 @@ def test_ethToTokenStopLoss_rev_no_gasPrice(auto, uni_router2, any, uniLS, max_g
         cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
         min_output = int(cur_output * 0.8)
         max_output = int(cur_output * 0.9)
-        call_data = uniLS.ethToTokenStopLoss.encode_input(max_gas_price, UNIV2_ROUTER2_ADDR, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
+        call_data = uniLS.ethToTokenRange.encode_input(max_gas_price, UNIV2_ROUTER2_ADDR, min_output, max_output, path, auto.CHARLIE, time.time() * 2)
         msg_value = input_amount + int(0.01 * E_18)
         req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, False, False, False)
 

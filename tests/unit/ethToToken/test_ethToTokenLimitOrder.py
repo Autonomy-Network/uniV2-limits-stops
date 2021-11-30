@@ -12,7 +12,7 @@ def test_ethToTokenLimitOrder_random(auto, uni_router2, any, uniLS, input_amount
     path = [WETH_ADDR, ANY_ADDR]
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(cur_output * 1.1)
-    call_data = uniLS.ethToTokenLimitOrder.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, limit_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenRange.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, limit_output, int(MAX_UINT/input_amount), path, auto.CHARLIE, time.time() * 2)
     max_fee = int(0.01 * E_18)
     msg_value = input_amount + max_fee
     any_start_bal = any.balanceOf(auto.CHARLIE)
@@ -58,7 +58,7 @@ def test_ethToTokenLimitOrder_rev_msgValue(auto, uni_router2, any, uniLS):
     input_amount = int(0.1 * E_18)
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(cur_output * 1.1)
-    call_data = uniLS.ethToTokenLimitOrder.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, limit_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenRange.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, limit_output, int(MAX_UINT/input_amount), path, auto.CHARLIE, time.time() * 2)
     msg_value = input_amount + int(0.01 * E_18)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, 0, False, False, False)
 
@@ -89,7 +89,7 @@ def test_ethToTokenLimitOrder_rev_no_price_change(auto, uni_router2, any, uniLS)
     input_amount = int(0.1 * E_18)
     cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
     limit_output = int(cur_output * 1.1)
-    call_data = uniLS.ethToTokenLimitOrder.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, limit_output, path, auto.CHARLIE, time.time() * 2)
+    call_data = uniLS.ethToTokenRange.encode_input(MAX_GAS_PRICE, UNIV2_ROUTER2_ADDR, limit_output, int(MAX_UINT/input_amount), path, auto.CHARLIE, time.time() * 2)
     msg_value = input_amount + int(0.01 * E_18)
     req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, False, False, False)
 
@@ -113,7 +113,7 @@ def test_ethToTokenLimitOrder_rev_gasPrice(auto, uni_router2, any, uniLS, max_ga
         input_amount = int(0.1 * E_18)
         cur_output = uni_router2.getAmountsOut(input_amount, path)[-1]
         limit_output = int(cur_output * 1.1)
-        call_data = uniLS.ethToTokenLimitOrder.encode_input(max_gas_price, UNIV2_ROUTER2_ADDR, limit_output, path, auto.CHARLIE, time.time() * 2)
+        call_data = uniLS.ethToTokenRange.encode_input(max_gas_price, UNIV2_ROUTER2_ADDR, limit_output, int(MAX_UINT/input_amount), path, auto.CHARLIE, time.time() * 2)
         msg_value = input_amount + int(0.01 * E_18)
         req = (auto.CHARLIE.address, uniLS.address, auto.DENICE.address, call_data, msg_value, input_amount, False, False, False)
 
