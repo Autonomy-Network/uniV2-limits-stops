@@ -62,5 +62,5 @@ def main():
     DEPLOYER = auto_accs[4]
     print(DEPLOYER)
     tl = Timelock.at(tl_addr)
-    uniV2LimitsStops = DEPLOYER.deploy(UniV2LimitsStops, REG_ADDR, UF_ADDR, UFF_ADDR, WETH_ADDR, (UNIV2_ADDR, (ADDR_0, WETH_ADDR), False), publish_source=PUBLISH_SOURCE)
-    uniV2LimitsStops.transferOwnership(tl, {'from': DEPLOYER})
+    uniV2LimitsStops = DEPLOYER.deploy(UniV2LimitsStops, REG_ADDR, UF_ADDR, UFF_ADDR, WETH_ADDR, (UNIV2_ADDR, (ADDR_0, WETH_ADDR), False), publish_source=PUBLISH_SOURCE, gas_limit=1e7)
+    uniV2LimitsStops.transferOwnership(tl, {'gas_limit': 1e7, 'from': DEPLOYER})
