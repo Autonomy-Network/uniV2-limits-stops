@@ -1,17 +1,15 @@
 from brownie import accounts, UniV2LimitsStops, Registry, Contract
 import time
 import sys
+import yaml
 import os
 sys.path.append(os.path.abspath('tests'))
 
 from consts import *
 sys.path.pop()
 
-AUTONOMY_SEED = os.environ['AUTONOMY_SEED']
-# Annoyingly you need to use auto_accs in order to access the private keys directly,
-# they can't be found via accounts[0] etc since it doesn't replace the accounts
-# and the private keys of the default accounts can't be accessed directly
-auto_accs = accounts.from_mnemonic(AUTONOMY_SEED, count=10)
+with open("config.yml", "r") as ymlfile:
+    cfg = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
 # BSC testnet
 # WETH_ADDR = '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd'
@@ -25,12 +23,12 @@ UNIV2_ADDR = '0x2D99ABD9008Dc933ff5c0CD271B88309593aB921'
 REG_ADDR = '0x2d2C856115911C0D14B9DBfe0FEaB1baBE358D77'
 
 def main():
-    SENDER = auto_accs[4]
+    SENDER = accounts.add(cfg['AUTONOMY_PRIV'])
     print(SENDER)
     uniLS = UniV2LimitsStops.at('0x1CbC9330a96eD2EC20EE7e30407d4A97b5122d3b')
     r = Registry.at(REG_ADDR)
     uni = Contract.from_explorer(UNIV2_ADDR)
-    
+
     path = [WETH_ADDR, "0xFe143522938e253e5Feef14DB0732e9d96221D72"]
     input_amount = int(0.1 * E_18)
     init_output = uni.getAmountsOut(input_amount, path)[-1]

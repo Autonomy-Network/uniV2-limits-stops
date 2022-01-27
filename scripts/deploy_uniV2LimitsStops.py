@@ -1,5 +1,6 @@
 from brownie import accounts, UniV2LimitsStops, Timelock
 import sys
+import yaml
 import os
 sys.path.append(os.path.abspath('tests'))
 
@@ -7,11 +8,8 @@ from consts import *
 sys.path.pop()
 
 
-AUTONOMY_SEED = os.environ['AUTONOMY_SEED']
-# Annoyingly you need to use auto_accs in order to access the private keys directly,
-# they can't be found via accounts[0] etc since it doesn't replace the accounts
-# and the private keys of the default accounts can't be accessed directly
-auto_accs = accounts.from_mnemonic(AUTONOMY_SEED, count=10)
+with open("config.yml", "r") as ymlfile:
+    cfg = yaml.load(ymlfile, Loader=yaml.FullLoader)
 
 # BSC testnet
 # WETH_ADDR = '0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd'
@@ -50,9 +48,8 @@ UNIV2_ADDR = '0x1C232F01118CB8B424793ae03F870aa7D0ac7f77'
 
 
 def main():
-    DEPLOYER = auto_accs[4]
+    DEPLOYER = accounts.add(cfg['AUTONOMY_PRIV'])
     print(DEPLOYER)
     tl = Timelock.at(tl_addr)
     uniV2LimitsStops = DEPLOYER.deploy(UniV2LimitsStops, REG_ADDR, UF_ADDR, UFF_ADDR, WETH_ADDR, (UNIV2_ADDR, (ADDR_0, WETH_ADDR), False))
     uniV2LimitsStops.transferOwnership(tl, {'from': DEPLOYER})
-    
