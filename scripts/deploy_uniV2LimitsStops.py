@@ -54,14 +54,20 @@ UF_ADDR = '0x9075ee07E1c41fbc5Ecd20f3061Acc534b39aa7b'
 UFF_ADDR = '0x0457670781c6A779594572BE6D6DBdac1f75d5AD'
 tl_addr = '0x79E0fEc218BbfC89A70C92A289C451D1f8F59269'
 WETH_ADDR = '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270'
-UNIV2_ADDR = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45'
+UNIV2_ADDR = '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506'
 
 
+publish = True
 
-def main():
-    DEPLOYER = auto_accs[4]
-    print(DEPLOYER)
-    tl = Timelock.at(tl_addr)
-    uniV2LimitsStops = DEPLOYER.deploy(UniV2LimitsStops, REG_ADDR, UF_ADDR, UFF_ADDR, WETH_ADDR, (UNIV2_ADDR, (ADDR_0, WETH_ADDR), False))
-    uniV2LimitsStops.transferOwnership(tl, {'from': DEPLOYER})
-    
+def main():        
+    if publish:
+        contract_address = '0xe392288087Be9BABa755B5349CE11Cf02310d85F'
+        print('Publishing contract at {}'.format(contract_address))
+        contract = UniV2LimitsStops.at(contract_address)
+        UniV2LimitsStops.publish_source(contract)
+    else:
+        DEPLOYER = auto_accs[1]
+        print(DEPLOYER)
+        tl = Timelock.at(tl_addr)
+        uniV2LimitsStops = DEPLOYER.deploy(UniV2LimitsStops, REG_ADDR, UF_ADDR, UFF_ADDR, WETH_ADDR, (UNIV2_ADDR, (ADDR_0, WETH_ADDR), False))
+        uniV2LimitsStops.transferOwnership(tl, {'from': DEPLOYER})
