@@ -49,15 +49,15 @@ auto_accs = accounts.from_mnemonic(AUTONOMY_SEED, count=10)
 # UNIV2_ADDR = '0x1C232F01118CB8B424793ae03F870aa7D0ac7f77'
 
 # Polygon mainnet
-REG_ADDR = '0xF2f9793f55c9DAA0b9ba784BC558D90e2035ba86'
-UF_ADDR = '0x9075ee07E1c41fbc5Ecd20f3061Acc534b39aa7b'
-UFF_ADDR = '0x0457670781c6A779594572BE6D6DBdac1f75d5AD'
+REG_ADDR = '0x18d02301E534cab22267460eD8fBdf2B8382A3ff'
+UF_ADDR = '0x0457670781c6A779594572BE6D6DBdac1f75d5AD'
+UFF_ADDR = '0x9075ee07E1c41fbc5Ecd20f3061Acc534b39aa7b'
 tl_addr = '0x79E0fEc218BbfC89A70C92A289C451D1f8F59269'
 WETH_ADDR = '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270'
 UNIV2_ADDR = '0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506'
 
 
-publish = True
+publish = False
 
 def main():        
     if publish:
@@ -71,3 +71,4 @@ def main():
         tl = Timelock.at(tl_addr)
         uniV2LimitsStops = DEPLOYER.deploy(UniV2LimitsStops, REG_ADDR, UF_ADDR, UFF_ADDR, WETH_ADDR, (UNIV2_ADDR, (ADDR_0, WETH_ADDR), False))
         uniV2LimitsStops.transferOwnership(tl, {'from': DEPLOYER})
+        UniV2LimitsStops.publish_source(uniV2LimitsStops)
